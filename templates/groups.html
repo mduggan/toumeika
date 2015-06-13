@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% import "groupstable.html" as grouptable %}
+{% block body %}
+{% autoescape false %}
+{{ grouptable.table('<h2><i class="fa fa-users"></i> ' + _('All Groups') + '</h2>') }}
+{% endautoescape %}
+{% endblock %}
+{% block extrafooter %}
+<script type="text/javascript">
+var doctypes = ({{doctypes|safe}});
+var pubtypes = ({{pubtypes|safe}});
+{{ grouptable.script("/api/summary/group") }}
+</script>
+{% endblock %}

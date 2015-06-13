@@ -1,0 +1,41 @@
+{% macro table(table_title) %}
+<div class="container">
+  <div class="page-header">
+   {{ table_title|safe }}
+  </div>
+  <div class="row">
+     <table class="table table-hover table-striped" id="groups" width="100%">
+      <thead>
+            <tr>
+                <th>{{_('Name')}}</th>
+                <th>{{_('Type')}}</th>
+                <th>{{_('Documents')}}</th>
+                <th>{{_('Years')}}</th>
+            </tr>
+        </thead>
+     </table>
+   </div>
+</div>
+{%- endmacro %}
+{% macro script(url) %}
+$(function() {
+  tbl = $('#groups').DataTable({
+    "language": { "url": "/static/dt_lang/{{g.locale}}.json" },
+    "processing": true,
+    "ajax": { "url": "{{url}}" },
+    "serverSide": true,
+    "order": [[2, "desc"], [0, "desc"]],
+    {% if q %}
+    "search": { "search": "{{q}}" },
+    {% endif %}
+    "columns": [
+        { "data": "name", "render": function (data, type, full) {
+          return '<i class="fa fa-file-pdf-o"></i> <a href="/group/'+full.id+'">'+data+'</a>'; } },
+        { "data": "typename" },
+        { "data": "doccount" },
+        { "data": "minyear", "render": function (data, type, full) {
+          return full.minyear + '-' + full.maxyear; }, "orderable": false }
+    ]
+  });
+});
+{%- endmacro %}

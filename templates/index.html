@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block body %}
+    <div class="jumbotron">
+      <div class="container">
+        <h1>{{_('Political Funds Database')}}</h1>
+        <p>{{_('An unofficial search engine for political funding declarations (<a href="http://www.soumu.go.jp/senkyo/seiji_s/seijishikin/">政治資金収支報告書</a>) from Japan\'s Ministry of Internal Affairs and Communications')}}</p>
+      <div class="row">
+      <div class="col-md-6 col-md-offset-3">
+        <form class="form-inline form-group-lg {% if nomatch %}has-warning{% endif %}" role="form" aria-describedby="search-status" name="searchform">
+          <div class="form-group">
+           <input type="text" id="searchbox" name="q" placeholder="{{_('Search by party (eg: 海賊党, 神の党)')}}" autocomplete="off" autofocus="true" class="form-control" size="40" value="{{nomatch}}">
+          <button type="submit" class="btn btn-primary btn-lg"><i class="fa fa-search"></i> Search</button>
+          </div>
+        </form>
+      </div>
+      <div>{% if nomatch %}<span>{{_('No documents match %(nomatch)s.', nomatch=nomatch)}}.</span>{% endif %}</div>
+      </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <h2>{{_('Or start browsing by...')}}</h2>
+      <div class="row">
+        <div class="col-md-4">
+          <h3><i class="fa fa-users"></i> {{_('Groups')}}</h3>
+          <p>{{_('Political groups (eg, 自民党, みんなの党, etc)')}}</p>
+          <p><a class="btn btn-default" href="/groups" role="button">{{_('Groups')}} &raquo;</a></p>
+        </div>
+        <div class="col-md-4">
+          <h3><i class="fa fa-book"></i> {{_('Publications')}}</h3>
+          <p>{{_('Documents split by when they were published')}}</p>
+          <p><a class="btn btn-default" href="/pubs" role="button">{{_('Publications')}} &raquo;</a></p>
+       </div>
+        <div class="col-md-4">
+          <h3><i class="fa fa-calendar"></i> {{_('Year')}}</h3>
+          <p>{{_('Documents split by the year being declared')}}</p>
+          <p></p>
+          <p><a class="btn btn-default" href="/years" role="button">{{_('By Year')}} &raquo;</a></p>
+        </div>
+      </div>
+{% endblock %}
+{% block extrafooter%}
+<script type="text/javascript">
+$(function() {
+  var search = $('#searchbox').typeahead({
+    items: 5,
+    autoSelect: false,
+    source: function (query, process) {
+        return $.get("/api/search/" + query, function (data) {
+            return process(data.values);
+        }, 'json');
+    },
+    afterSelect: function () { document.searchform.submit(); },
+    // Don't hide on select, it sucks with the IME - you hit tab and it hides
+    // the options.  same as the standard select but does not hide.
+    select: function () {
+      var val = this.$menu.find('.active').data('value');
+      this.$element.data('active', val);
+      if(this.autoSelect || val) {
+        var newVal = this.updater(val);
+        this.$element
+          .val(this.displayText(newVal) || newVal)
+          .change();
+        this.afterSelect(newVal);
+      }
+      return this; //this.hide();
+    },
+
+  });
+  search.on('compositionend', function(e) {
+    // More hacks to work nicely with IME..
+    $('#searchbox').typeahead("lookup");
+  });
+});
+</script>
+{% endblock %}

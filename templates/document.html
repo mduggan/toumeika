@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="container">
+  <div class="page-header">
+    <h2><i class="fa fa-file-pdf-o"></i> {{_('PDF Document from %(group)s', group=group)}}</h2>
+  </div>
+  <div class="row">
+    <div class="col-md-8"><a href="{{pdfurl}}"><img alt="{{_('Front page image.')}}" title="{{_('Click for full document')}}" class="img-thumbnail" src="{{thumbnail}}"></a></div>
+    <div class="col-md-4">
+     <table class="table table-hover">
+      <caption>{{_('Document Data')}}</caption>
+      <tbody>
+        <tr>
+          <th scope="row">{{_('File')}}</th>
+          <td><a href="{{pdfurl}}">{{fname}}</a> (<a href="/doc/cached/{{docid}}">{{_('cached')}}</a>)</td>
+        </tr>
+        <tr>
+          <th scope="row">{{_('Group')}}</th>
+          <td><a title="{{grouptype}}" href="/group/{{group_id}}">{{group}}</a></td>
+        </tr>
+        <tr>
+          <th scope="row">{{_('Declared Year')}}</th>
+          <td>{{year}}</td>
+        </tr>
+        <tr>
+          <th scope="row">{{_('Published')}}</th>
+          <td>{{published}}</td>
+        </tr>
+        <tr>
+          <th scope="row">{{_('Publication Type')}}</th>
+          <td>{{pubtype}}</td>
+        </tr>
+        <tr>
+          <th scope="row">{{_('Pages')}}</th>
+          <td>{{pages}}</td>
+        </tr>
+        <tr>
+          <th scope="row">{{_('Size')}}</th>
+          <td>{{size}}</td>
+        </tr>
+        {% if note %}
+        <tr>
+          <th scope="row">{{_('Note')}}</th>
+          <td>{{note}}</td>
+        </tr>
+        {% endif %}
+      </tbody>
+     </table>
+    </div>
+   </div>
+</div>
+{% endblock %}

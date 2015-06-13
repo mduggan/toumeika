@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "groupstable.html" as grouptable %}
+{% block body %}
+<div class="container">
+  <div class="page-header">
+    <h2><i class="fa fa-users"></i> {{groupname}}</h2>
+    <p class="text-muted">{{grouptype}}</p>
+  </div>
+  <div class="row">
+     <table class="table table-hover table-striped" id="groupdocs" width="100%">
+      <thead>
+            <tr>
+                <th>{{_('Filename')}}</th>
+                <th>{{_('Year')}}</th>
+                <th>{{_('Published')}}</th>
+                <th>{{_('Pub. Type')}}</th>
+                <th>{{_('Pages')}}</th>
+                <th>{{_('Size')}}</th>
+                <th>{{_('Note')}}</th>
+            </tr>
+        </thead>
+     </table>
+   </div>
+</div>
+
+{% if children %}
+{% autoescape false %}
+{{ grouptable.table('<h2><i class="fa fa-sitemap"></i> ' + _('Associated Groups') + '</h2>') }}
+{% endautoescape %}
+{% endif %}
+
+{% endblock %}
+{% block extrafooter %}
+<script type="text/javascript">
+$(function() {
+  var doctypes = ({{doctypes|safe}});
+  var pubtypes = ({{pubtypes|safe}});
+  tbl = $('#groupdocs').DataTable({
+    "language": { "url": "/static/dt_lang/{{g.locale}}.json" },
+    "processing": true,
+    "ajax": {
+      "url": "/api/group/{{groupid}}/docs",
+      "dataSrc": function (json) { return json.objects; }
+    },
+    "order": [[2, "desc"], [1, "desc"]],
+    "columns": [
+        { "data": "filename", "render": function (data, type, full, meta) {
+           return '<i class="fa fa-file-pdf-o"></i> <a href="/doc/'+full.id+'">'+data+'</a>'; } },
+        { "data": "year" },
+        { "data": "docset.published" },
+        { "data": "docset.pubtype_id", "render": function (data) { return pubtypes[data]; } },
+        { "data": "pages" },
+        { "data": "size_str" },
+        { "data": "note" },
+    ]
+  });
+});
+
+// This can be safely included whether or not we have any children.
+{{ grouptable.script("/api/summary/group/%d/children" % groupid) }}
+
+</script>
+{% endblock %}

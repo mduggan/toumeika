@@ -1,0 +1,10 @@
+*.pyc
+.*.swp
+.vagrant/
+.DS_Store
+db/*.db
+cache/*
+pdf/contents
+static/thumbnails/contents
+messages.pot
+**/messages.mo
