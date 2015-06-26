@@ -19,5 +19,3 @@ app.babel = Babel(app)
 from . import views
 from . import api
 from . import pageapi
-
-app.logger.info(app.babel.list_translations())
