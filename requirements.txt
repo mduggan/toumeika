@@ -1,6 +1,8 @@
 requests
+lxml
 SQLAlchemy
 Flask
 Flask-SQLAlchemy
 Flask-Babel
 Flask-Restless
+Pillow
