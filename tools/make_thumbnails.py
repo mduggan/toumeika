@@ -2,13 +2,9 @@
 # -*- coding: utf-8 -*-
 import os
 import logging
-import shlex
-import re
-import subprocess
-from tmpdir import TemporaryDirectory
 from argparse import ArgumentParser
+import pdfimages
 
-rot_re = re.compile("Page rot:       (\d+)")
 
 def check_pdf(pdfdir, pdffile, pdf_root, thumbnail_root, force_regen, optimise):
     assert pdfdir.startswith(pdf_root)
@@ -27,43 +23,9 @@ def check_pdf(pdfdir, pdffile, pdf_root, thumbnail_root, force_regen, optimise):
 
     pdf_fullpath = os.path.join(pdfdir, pdffile)
 
-    # First decide if the pages are upside-down
-    p = subprocess.Popen(['pdfinfo', pdf_fullpath], stdout=subprocess.PIPE)
-    (stdoutdata, stderrdata) = p.communicate()
-
-    rot = rot_re.search(stdoutdata)
-    if not rot:
-        logging.warn("Didn't get rot info for %s" % pdffile)
-        rot = 0
-    else:
-        rot = int(rot.groups()[0])
-
-    with TemporaryDirectory() as tmpdirname:
-        outfile_prefix = os.path.join(tmpdirname, 'thumb')
-        command = 'pdfimages -f 0 -l 1 -png %s %s' % (pdf_fullpath, outfile_prefix)
-        split = shlex.split(command)
-        subprocess.call(split)
-        outfile = outfile_prefix + '-000.png'
-        if not os.path.exists(outfile):
-            logging.warn("%s didn't get made :(" % outfile)
-            return
-        else:
-            if rot:
-                logging.debug("unflipping %s" % (outfile,))
-                outfile_flip = outfile + '-flip.png'
-                cmd = ['convert', outfile, '-rotate', str(rot), outfile_flip]
-                subprocess.call(cmd)
-                if not os.path.exists(outfile_flip):
-                    logging.warn("%s didn't get made :(" % outfile_flip)
-                else:
-                    outfile = outfile_flip
-
-            logging.debug("Optimising %s" % (outfile,))
-            if optimise:
-                subprocess.call(['optipng', '-q', outfile])
-
-            logging.debug("%s -> %s" % (outfile, thumbnailpath))
-            os.rename(outfile, thumbnailpath)
+    for pngpath in pdfimages.pdf_images(pdf_fullpath):
+        logging.debug("%s -> %s" % (pngpath, thumbnailpath))
+        os.rename(pngpath, thumbnailpath)
 
 
 def main():
