@@ -27,6 +27,10 @@ _nowrite = False
 _redo_meta = False
 
 
+html_cache_dir = None
+pdf_cache_dir = None
+
+
 def save(session, url, path):
     global _downloaded
     logging.debug('save url %s -> %s' % (url, path))
@@ -40,8 +44,9 @@ def save(session, url, path):
         with open(path, 'wb') as fd:
             for chunk in r.iter_content(4096):
                 fd.write(chunk)
-    except Exception, e:
-        import pdb; pdb.set_trace()
+    except Exception:
+        import pdb
+        pdb.set_trace()
 
         os.unlink(path)
         raise
@@ -97,7 +102,7 @@ def parse_page(text):
     return urls, tree.docinfo.encoding, title
 
 
-def cache_page(session, url, srcurl, html_cache_dir):
+def cache_page(session, url, srcurl):
     """ Get a page with caching """
     url = normalise(url, srcurl)
     if url in _seen:
@@ -111,7 +116,7 @@ def cache_page(session, url, srcurl, html_cache_dir):
     return open(path).read()
 
 
-def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, pdf_dir, grouptype, year, docsettype):
+def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, grouptype, year, docsettype):
     """ Get a PDF with caching """
     url = normalise(url, srcurl)
     if url in _seen:
@@ -119,10 +124,10 @@ def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, pdf_d
         return
 
     pdf_cache_file = url[len(site_base_url):]
-    pdf_cache_file = os.path.join(pdf_dir, pdf_cache_file)
-    pdf_cache_dir = os.path.dirname(pdf_cache_file)
-    if not os.path.isdir(pdf_cache_dir):
-        os.makedirs(pdf_cache_dir)
+    pdf_cache_file = os.path.join(pdf_cache_dir, pdf_cache_file)
+    pdf_dir = os.path.dirname(pdf_cache_file)
+    if not os.path.isdir(pdf_dir):
+        os.makedirs(pdf_dir)
     meta_file = pdf_cache_file + '_meta.txt'
 
     if (not _redo_meta) and os.path.exists(pdf_cache_file) and os.path.exists(meta_file):
@@ -130,6 +135,7 @@ def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, pdf_d
         return
 
     try:
+        meta = None
         if not _redo_meta:
             save(session, url, pdf_cache_file)
         if _redo_meta and os.path.exists(meta_file):
@@ -148,15 +154,21 @@ def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, pdf_d
         meta.write('year,%s\n' % year.encode('utf-8'))
         meta.close()
     except:
-        meta.close()
-        os.unlink(meta_file)
+        if meta:
+            meta.close()
+            os.unlink(meta_file)
         raise
 
 
 def report_url_filter(baseurl):
     def filterfn(s):
-        return '?' not in s[0] and ('/reports/' in s[0] or
-                                    ('/reports/' in baseurl and '/' not in s[0] and s[0].endswith('html')))
+        return '?' not in s[0] and (
+            ('/reports/' in s[0] or
+             ('/reports/' in baseurl and '/' not in s[0] and s[0].endswith('html')))
+            or
+            ('/contents/' in s[0] or
+             ('/contents/' in baseurl and '/' not in s[0] and s[0].endswith('pdf')))
+        )
     return filterfn
 
 
@@ -167,13 +179,35 @@ def get_nenbun(text):
     return year
 
 
-def pdf_page(session, url, site_base_url, ptype, title, srcurl, cache_dir, pdf_dir, _grouptype=None, _year=None):
+def page_auto(session, url, base_url, ptype, title, srcurl, data=None, grouptype=None, year=None):
+    """
+    Work out if this page is a table with a bunch of different sub-pages, or a simple list of PDFs
+    """
     logging.debug('%s: %s, %s' % (ptype, title, url))
-    data = cache_page(session, url, srcurl, cache_dir)
+    data = data or cache_page(session, url, base_url)
     if data is None:
         return
     urls, encoding, pagetitle = parse_page(data)
-    pdfurls = filter(lambda u: u[0].endswith('.pdf'), urls)
+    repurls = filter(report_url_filter(url), urls)
+
+    if not len(repurls):
+        import pdb; pdb.set_trace()
+        logging.debug(' (no good urls)')
+        return
+
+    node = repurls[0][2]
+    td = node.getparent()
+    if td.tag == 'td':
+        logging.debug('.... has children')
+        _page_with_children(session, url, title, ptype, base_url, data, repurls, encoding, pagetitle, _grouptype=grouptype, _year=year)
+    else:
+        logging.debug('.... is a pdf list')
+        _pdf_list_page(session, url, base_url, ptype, title, srcurl, data, repurls, encoding, pagetitle, _grouptype=grouptype, _year=year)
+
+
+def _pdf_list_page(session, url, site_base_url, ptype, title, srcurl, data, repurls, encoding, pagetitle, _grouptype=None, _year=None):
+    """ Process a page which is just links to a bunch of PDFs """
+    pdfurls = filter(lambda u: u[0].endswith('.pdf'), repurls)
     for purl, ptitle, node in pdfurls:
         if ptitle is None:
             # HACK: Hand code a couple of broken corner cases
@@ -182,10 +216,12 @@ def pdf_page(session, url, site_base_url, ptype, title, srcurl, cache_dir, pdf_d
             else:
                 logging.warn('No title for %s..' % purl)
                 ptitle = u'(無題)'
-        # Kinda hacky.. find the group type and year for non teiki pages
+
+        # Find the group type and year for non teiki pages
         grouptype = _grouptype
         year = _year
         if grouptype is None:
+            assert year is None
             previous = node.getprevious()
             while previous is not None and previous.tag != 'strong':
                 previous = previous.getprevious()
@@ -199,61 +235,67 @@ def pdf_page(session, url, site_base_url, ptype, title, srcurl, cache_dir, pdf_d
                 previous = previous.getprevious()
             if previous is None:
                 # No pages like this yet
-                import pdb; pdb.set_trace()
+                import pdb
+                pdb.set_trace()
             year = get_nenbun(previous.text)
 
-        cache_pdf(session, purl, url, site_base_url, ptype, title, ptitle, pdf_dir, grouptype, year, pagetitle)
+        cache_pdf(session, purl, url, site_base_url, ptype, title, ptitle, grouptype, year, pagetitle)
 
 
 # Processor functions all take the same arguments:
-def teiki(session, url, title, base_url, cache_dir, pdf_dir, data=None):
-    """ Process regular data - this is split into sub-pages. """
-    logging.debug('teiki: %s, %s' % (title, url))
-    data = data or cache_page(session, url, base_url, cache_dir)
-    if data is None:
-        return
-    urls, encoding, pagetitle = parse_page(data)
-    repurls = filter(report_url_filter(url), urls)
-    year = get_nenbun(title)
+def _page_with_children(session, url, title, ptype, base_url, data, repurls, encoding, pagetitle, _grouptype=None, _year=None):
+    """ Process data that is split into sub-pages. """
+    year = _year or get_nenbun(title)
 
     grouptypes = None
 
-    for suburl, subtitle, node in repurls:
+    for suburl, linktitle, node in repurls:
         td = node.getparent()
+        assert td.tag == 'td'
         tr = td.getparent()
+        assert tr.tag == 'tr'
         if grouptypes is None:
             tb = tr.getparent()
+            assert tb.tag == 'table'
             types = tb.xpath('//th')
             grouptypes = [''.join(x.itertext()).strip() for x in types]
         colno = tr.index(td)
         grouptype = grouptypes[colno]
+        assert _grouptype is None or _grouptype == grouptype
 
-        # TODO: Horrible hack, but search back to find the title of this seciton..
+        # Horrible hack method to check title, works on some pages..
         grouptype_offset = data.rfind('<!--', 0, data.index(suburl)) + 5
         grouptype_b = data[grouptype_offset:grouptype_offset+20].decode(encoding).split()[0]
-
-        if grouptype_b and grouptype_b != u'タイトル終了' and grouptype_b != grouptype:
-            import pdb; pdb.set_trace()
+        assert (not grouptype_b or grouptype_b == u'タイトル終了' or grouptype_b == grouptype)
 
         suburl = normalise(suburl, url)
-        logging.debug('   %s, %s %s' % (suburl, subtitle, grouptype))
-        pdf_page(session, suburl, base_url, 'teikisub', u'%s\t%s' % (title, subtitle), url, cache_dir, pdf_dir, _grouptype=grouptype, _year=year)
+        logging.debug('   %s, %s %s' % (suburl, linktitle, grouptype))
+        if suburl.endswith('.pdf'):
+            cache_pdf(session, suburl, url, base_url, ptype, title, linktitle, grouptype, year, pagetitle)
+        else:
+            combined_title = u'%s\t%s' % (title, linktitle)
+            sub_ptype = ptype + 'sub'
+            page_auto(session, suburl, base_url, sub_ptype, combined_title, url, data=None, grouptype=grouptype, year=year)
 
 
-def kaisan(session, url, title, base_url, cache_dir, pdf_dir):
+def kaisan(session, url, title, base_url):
     """ Process end of term data. Just a bunch of PDFs """
-    pdf_page(session, url, base_url, 'kaisan', title, base_url, cache_dir, pdf_dir)
+    page_auto(session, url, base_url, 'kaisan', title, base_url)
 
 
-def kaisanshibu(session, url, title, base_url, cache_dir, pdf_dir):
+def kaisanshibu(session, url, title, base_url):
     """ Process end of term branch data. Links to a bunch of sub-pages """
-    logging.warn("Write me: 解散支部分")
-    pdf_page(session, url, base_url, 'kaisanshibu', title, base_url, cache_dir, pdf_dir)
+    page_auto(session, url, base_url, 'kaisanshibu', title, base_url)
 
 
-def tsuika(session, url, title, base_url, cache_dir, pdf_dir):
+def tsuika(session, url, title, base_url):
     """ Process additional data.  Also just a bunch of PDFs """
-    pdf_page(session, url, base_url, 'tsuika', title, base_url, cache_dir, pdf_dir)
+    page_auto(session, url, base_url, 'tsuika', title, base_url)
+
+
+def teiki(session, url, title, base_url):
+    """ Process additional data.  Also just a bunch of PDFs """
+    page_auto(session, url, base_url, 'teiki', title, base_url)
 
 
 # There are three types of page, each with their own processor function
@@ -272,7 +314,7 @@ def check_dir(data_dir, create=False):
             raise Exception("Data dir %s doesn't exist - use --mkdirs to create it." % data_dir)
 
 
-def scrape_from(base_url, html_cache_dir, pdf_dir, pattern):
+def scrape_from(base_url, pattern):
     logging.info("Starting at %s" % base_url)
     session = requests.Session()
 
@@ -286,14 +328,15 @@ def scrape_from(base_url, html_cache_dir, pdf_dir, pattern):
         href = normalise(href, base_url)
         for k, p in processors.items():
             if k in text:
-                p(session, href, text, base_url, html_cache_dir, pdf_dir)
+                p(session, href, text, base_url)
 
 
-def recheck_meta(base_url, html_cache_dir, pdf_dir):
+def recheck_meta(base_url):
     global _redo_meta
     global _nowrite
     _redo_meta = True
     _nowrite = True
+
     class FakeSession():
         pass
 
@@ -306,7 +349,7 @@ def recheck_meta(base_url, html_cache_dir, pdf_dir):
         cache_data[f] = open(os.path.join(html_cache_dir, f), 'rb').read()
 
     logging.info("checking cached pdf files..")
-    for root, dirs, files in os.walk(pdf_dir):
+    for root, dirs, files in os.walk(pdf_cache_dir):
         meta_files = filter(lambda x: x.endswith('_meta.txt'), files)
         if not meta_files:
             continue
@@ -328,11 +371,12 @@ def recheck_meta(base_url, html_cache_dir, pdf_dir):
                     srcurl = srcurl[len(SITE):]
                 match = filter(lambda x: '"%s"' % srcurl in x, cache_data.values())
                 if len(match) != 1:
-                    import pdb; pdb.set_trace()
+                    import pdb
+                    pdb.set_trace()
                     raise
-                teiki(FakeSession(), htmlurl, title.split(u'\t')[0], base_url, html_cache_dir, pdf_dir, data=match[0])
+                page_with_children(FakeSession(), htmlurl, title.split(u'\t')[0], 'teiki', base_url, data=match[0])
             else:
-                pdf_page(FakeSession(), htmlurl, base_url, ptype, title, base_url, html_cache_dir, pdf_dir)
+                pdf_page(FakeSession(), htmlurl, base_url, ptype, title, base_url)
 
             processed_pages.add(htmlurl)
 
@@ -366,10 +410,15 @@ def main():
         check_dir(data_dir, create=args.mkdirs)
 
     logging.debug("HTML cache is %s" % args.cachedir)
+    global html_cache_dir
+    html_cache_dir = args.cachedir
+
     logging.debug("PDF cache is %s" % args.pdfdir)
+    global pdf_cache_dir
+    pdf_cache_dir = args.pdfdir
 
     if not args.recheck_meta:
-        scrape_from(BASE_URL, args.cachedir, args.pdfdir, args.pattern)
+        scrape_from(BASE_URL, args.pattern)
         logging.debug("Downloaded %d files." % _downloaded)
     else:
         recheck_meta(BASE_URL, args.cachedir, args.pdfdir)
