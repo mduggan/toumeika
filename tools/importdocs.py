@@ -15,7 +15,7 @@ nenbun_regex = re.compile(year_regex_str + u'年分')
 date_regex = re.compile(year_regex_str + u'年([　\d]\d)月([　\d]\d)日公表')
 
 # Note the full-width brackets and slash.
-multipart_re = re.compile(u'^(.*)(（.*／.*）.*)')
+multipart_re = re.compile(u'^(.*)(（.*／.*）.*|（その.*）)')
 
 
 def year_to_western(emp, year):
@@ -142,6 +142,10 @@ def get_or_make_group(s, api_root, name, gtype, parent):
         else:
             logging.info("Update group %s parent %s unknown" % (name, parent))
 
+    if gtype not in _grouptype_cache:
+        logging.warn("Unknown group type: %s" % gtype)
+        return
+
     obj = {'name': name, 'type_id': _grouptype_cache[gtype], 'parent_id': parent_id}
     result = s.post(api_root + 'group', data=json.dumps(obj)).json()
     if 'id' not in result:
@@ -235,6 +239,7 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
         note = None
 
         notepart = multipart_re.search(gname)
+        # logging.info(u"Group %s notepart %s." % (gname, notepart))
         if notepart is not None:
             notepart = notepart.groups()
             gname = notepart[0]
@@ -252,6 +257,8 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
         if gtype == u'政党の本部':
             gtype = u'政党本部'
         if gtype == u'政党の支部':
+            gtype = u'政党支部'
+        if gtype == u'総括文書（支部分）':
             gtype = u'政党支部'
         if gtype == u'政党':
             # This could be honbu or shibu
