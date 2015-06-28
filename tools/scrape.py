@@ -62,6 +62,9 @@ def normalise(url, base):
     return url
 
 
+onclick_re = re.compile("window.open\('([^']*\.pdf)','pdf','[^']*'\);")
+
+
 def parse_page(text):
     """
     Extract URLs and their names from some text.  Returns the encoding of
@@ -76,8 +79,15 @@ def parse_page(text):
             continue
         href = l.attrib['href']
         if href.startswith('#') or href == '/':
-            # Ignore pointless links..
-            continue
+            if 'onclick' in l.attrib:
+                match = onclick_re.match(l.attrib['onclick'])
+                if match:
+                    href = match.groups()[0]
+                else:
+                    continue
+            else:
+                # Ignore pointless links..
+                continue
         urls.append((href, l.text, l))
     title = tree.xpath('//*[@id="title"]')
     if len(title):
@@ -143,8 +153,11 @@ def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, pdf_d
         raise
 
 
-def report_url_filter(s):
-    return '?' not in s[0] and '/reports/' in s[0]
+def report_url_filter(baseurl):
+    def filterfn(s):
+        return '?' not in s[0] and ('/reports/' in s[0] or
+                                    ('/reports/' in baseurl and '/' not in s[0] and s[0].endswith('html')))
+    return filterfn
 
 
 def get_nenbun(text):
@@ -200,23 +213,42 @@ def teiki(session, url, title, base_url, cache_dir, pdf_dir, data=None):
     if data is None:
         return
     urls, encoding, pagetitle = parse_page(data)
-    repurls = filter(report_url_filter, urls)
-
+    repurls = filter(report_url_filter(url), urls)
     year = get_nenbun(title)
 
+    grouptypes = None
+
     for suburl, subtitle, node in repurls:
+        td = node.getparent()
+        tr = td.getparent()
+        if grouptypes is None:
+            tb = tr.getparent()
+            types = tb.xpath('//th')
+            grouptypes = [''.join(x.itertext()).strip() for x in types]
+        colno = tr.index(td)
+        grouptype = grouptypes[colno]
+
         # TODO: Horrible hack, but search back to find the title of this seciton..
         grouptype_offset = data.rfind('<!--', 0, data.index(suburl)) + 5
-        grouptype = data[grouptype_offset:grouptype_offset+20].decode(encoding).split()[0]
+        grouptype_b = data[grouptype_offset:grouptype_offset+20].decode(encoding).split()[0]
+
+        if grouptype_b and grouptype_b != u'タイトル終了' and grouptype_b != grouptype:
+            import pdb; pdb.set_trace()
 
         suburl = normalise(suburl, url)
-        logging.debug('   %s, %s' % (suburl, subtitle))
+        logging.debug('   %s, %s %s' % (suburl, subtitle, grouptype))
         pdf_page(session, suburl, base_url, 'teikisub', u'%s\t%s' % (title, subtitle), url, cache_dir, pdf_dir, _grouptype=grouptype, _year=year)
 
 
 def kaisan(session, url, title, base_url, cache_dir, pdf_dir):
     """ Process end of term data. Just a bunch of PDFs """
     pdf_page(session, url, base_url, 'kaisan', title, base_url, cache_dir, pdf_dir)
+
+
+def kaisanshibu(session, url, title, base_url, cache_dir, pdf_dir):
+    """ Process end of term branch data. Links to a bunch of sub-pages """
+    logging.warn("Write me: 解散支部分")
+    pdf_page(session, url, base_url, 'kaisanshibu', title, base_url, cache_dir, pdf_dir)
 
 
 def tsuika(session, url, title, base_url, cache_dir, pdf_dir):
@@ -227,6 +259,7 @@ def tsuika(session, url, title, base_url, cache_dir, pdf_dir):
 # There are three types of page, each with their own processor function
 processors = {u'定期公表': teiki,
               u'解散分': kaisan,
+              u'解散支部分': kaisanshibu,
               u'追加分': tsuika}
 
 
@@ -239,15 +272,17 @@ def check_dir(data_dir, create=False):
             raise Exception("Data dir %s doesn't exist - use --mkdirs to create it." % data_dir)
 
 
-def scrape_from(base_url, html_cache_dir, pdf_dir):
+def scrape_from(base_url, html_cache_dir, pdf_dir, pattern):
     logging.info("Starting at %s" % base_url)
     session = requests.Session()
 
     data = session.get(base_url).content
     # data = open('test.html').read()
     urls, encoding, pagetitle = parse_page(data)
-    urls = filter(report_url_filter, urls)
+    urls = filter(report_url_filter(base_url), urls)
     for href, text, node in urls:
+        if pattern and not any([p in href for p in pattern]):
+            continue
         href = normalise(href, base_url)
         for k, p in processors.items():
             if k in text:
@@ -318,6 +353,7 @@ def main():
     p.add_argument("--mkdirs", "-m", action="store_true", help="create cache and pdf dir if they don't exist")
     p.add_argument("--verbose", "-v", action="store_true", help="be more verbose")
     p.add_argument("--recheck-meta", "-r", action="store_true", help="recheck metadata by reparsing html")
+    p.add_argument('pattern', nargs='*', help='page pattern')
 
     args = p.parse_args()
 
@@ -333,7 +369,7 @@ def main():
     logging.debug("PDF cache is %s" % args.pdfdir)
 
     if not args.recheck_meta:
-        scrape_from(BASE_URL, args.cachedir, args.pdfdir)
+        scrape_from(BASE_URL, args.cachedir, args.pdfdir, args.pattern)
         logging.debug("Downloaded %d files." % _downloaded)
     else:
         recheck_meta(BASE_URL, args.cachedir, args.pdfdir)
