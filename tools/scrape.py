@@ -248,25 +248,49 @@ def _page_with_children(session, url, title, ptype, base_url, data, repurls, enc
     year = _year or get_nenbun(title)
 
     grouptypes = None
+    grouptype_tb = None
 
     for suburl, linktitle, node in repurls:
         td = node.getparent()
         assert td.tag == 'td'
         tr = td.getparent()
         assert tr.tag == 'tr'
-        if grouptypes is None:
+        tb = tr.getparent()
+        assert tb.tag == 'table'
+
+        if tb.attrib.get('id') == 'list-item':
+            # embedded table..
+            td = tb.getparent()
+            assert td.tag == 'td'
+            tr = td.getparent()
+            assert tr.tag == 'tr'
             tb = tr.getparent()
             assert tb.tag == 'table'
-            types = tb.xpath('//th')
-            grouptypes = [''.join(x.itertext()).strip() for x in types]
-        colno = tr.index(td)
-        grouptype = grouptypes[colno]
-        assert _grouptype is None or _grouptype == grouptype
 
-        # Horrible hack method to check title, works on some pages..
-        grouptype_offset = data.rfind('<!--', 0, data.index(suburl)) + 5
-        grouptype_b = data[grouptype_offset:grouptype_offset+20].decode(encoding).split()[0]
-        assert (not grouptype_b or grouptype_b == u'タイトル終了' or grouptype_b == grouptype)
+        if grouptypes is None or tb != grouptype_tb:
+            types = tb.xpath('./tr/th')
+            grouptypes = [''.join(x.itertext()).strip() for x in types]
+            grouptype_tb = tb
+
+        colno = tr.xpath('./td').index(td)
+
+        assert colno < len(grouptypes) or _grouptype is not None
+
+        if colno < len(grouptypes):
+            grouptype = grouptypes[colno]
+
+            # Horrible hack method to check title, works on some pages..
+            grouptype_offset = data.rfind('<!--', 0, data.index(suburl)) + 5
+            grouptype_b = data[grouptype_offset:grouptype_offset+20].decode(encoding).split()[0]
+            if grouptype_b == u'議員別' and grouptype.startswith(u'国会議員関係政治団体'):
+                grouptype = grouptype_b
+
+            if not (not grouptype_b or grouptype_b == u'タイトル終了' or grouptype_b == grouptype):
+                import pdb; pdb.set_trace()
+
+            assert _grouptype is None or grouptype == _grouptype
+        else:
+            grouptype = _grouptype
 
         suburl = normalise(suburl, url)
         logging.debug('   %s, %s %s' % (suburl, linktitle, grouptype))
