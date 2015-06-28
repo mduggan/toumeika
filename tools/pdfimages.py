@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import glob
 import logging
 import shlex
 import re
@@ -36,31 +37,30 @@ def pdf_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=0, lastpa
     with TemporaryDirectory() as tmpdirname:
         outfile_prefix = os.path.join(tmpdirname, 'thumb')
         lastpagestr = '-l %d' % lastpage if lastpage else ''
-        command = 'pdfimages -f %d %s -png %s %s' % (firstpage, lastpagestr, pdf_fullpath, outfile_prefix)
+        command = 'pdfimages -p -f %d %s -png %s %s' % (firstpage, lastpagestr, pdf_fullpath, outfile_prefix)
         split = shlex.split(command)
         subprocess.call(split)
-        outpattern = outfile_prefix + '-%03d.png'
+        outpattern = outfile_prefix + '-%03d-*.png'
 
-        pageno = 0
-        while os.path.exists(outpattern % pageno):
-            outfile = outpattern % pageno
-            if not os.path.exists(outfile):
-                logging.warn("%s didn't get made :(" % outfile)
-                return
-            else:
-                if rot:
-                    logging.debug("unflipping %s" % (outfile,))
-                    outfile_flip = outfile + '-flip.png'
-                    cmd = ['convert', outfile, '-rotate', str(rot), outfile_flip]
-                    subprocess.call(cmd)
-                    if not os.path.exists(outfile_flip):
-                        logging.warn("%s didn't get made :(" % outfile_flip)
-                    else:
-                        outfile = outfile_flip
+        pageno = 1
+        while glob.glob(outpattern % pageno):
+            # there could be multiple images - find the big one.
+            outfiles = glob.glob(outpattern % pageno)
+            outfile = max(outfiles, key=lambda x: os.stat(x).st_size)
+            logging.debug(" .. biggest is %s" % outfile)
+            if rot:
+                logging.debug("unflipping %s" % (outfile,))
+                outfile_flip = outfile + '-flip.png'
+                cmd = ['convert', outfile, '-rotate', str(rot), outfile_flip]
+                subprocess.call(cmd)
+                if not os.path.exists(outfile_flip):
+                    logging.warn("%s didn't get made :(" % outfile_flip)
+                else:
+                    outfile = outfile_flip
 
-                if optimise:
-                    logging.debug("Optimising %s" % (outfile,))
-                    subprocess.call(['optipng', '-q', outfile])
+            if optimise:
+                logging.debug("Optimising %s" % (outfile,))
+                subprocess.call(['optipng', '-q', outfile])
 
-                yield outfile
+            yield outfile
             pageno += 1
