@@ -11,10 +11,16 @@ from PIL import Image
 import subprocess
 import sys
 import os
+import json
 import logging
+import requests
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from shikin.pdf import pdfimages
+
+API_BASE = 'http://localhost:5000/api/'
+DOC_API = API_BASE + 'document/%d'
+SEGMENT_API = API_BASE + 'raw/doc_segment'
 
 DEBUG = True
 
@@ -172,7 +178,7 @@ def ocr_cell(im, cells, x, y, tmpdir):
     cmd = ["tesseract", "-l", "jpn+eng", ftif, fbase]
     # extract cell from whole image, grayscale (1-color channel), monochrome
     region = im.crop(cells[x][y])
-    #region = ImageOps.grayscale(region)
+    # region = ImageOps.grayscale(region)
     region = region.point(lambda p: p > 200 and 255)
     # determine background color (most used color)
     histo = region.histogram()
@@ -190,7 +196,7 @@ def ocr_cell(im, cells, x, y, tmpdir):
         y2 -= 1
     # save as TIFF and extract text with Tesseract OCR
     trimmed = region.crop((x1, y1, x2, y2))
-    logging.debug("region trim (%d,%d,%d,%d)" % (x1, y1, x2, y2))
+    logging.debug("region trim %d %d (%d,%d,%d,%d)" % (x, y, x1, y1, x2, y2))
     if x1 >= x2 or y1 >= y2:
         logging.debug("nothing left.")
         return ''
@@ -217,28 +223,33 @@ def get_image_data(filename):
 
         cropw = x2 - x1
         croph = y2 - y1
-        logging.info("%s: (%d,%d)-(%d-%d)" % (pngfname, x1, y1, y1, y2))
+        logging.info("%s:%d: (%d,%d)-(%d-%d)" % (pngfname, blockno, x1, y1, y1, y2))
         hthresh = max(H_MIN_PX, int((cropw) * H_THRESH))
         hlines = get_hlines(pix, cropw, croph, hthresh)
-        logging.info("%s: hlines: %d" % (pngfname, len(hlines)))
+        logging.debug("%s: hlines: %d" % (pngfname, len(hlines)))
         vthresh = max(V_MIN_PX, int((croph) * V_THRESH))
         vlines = get_vlines(pix, cropw, croph, vthresh)
-        logging.info("%s: vlines: %d" % (pngfname, len(vlines)))
+        logging.debug("%s: vlines: %d" % (pngfname, len(vlines)))
 
         # TODO: fill white on the lines before cropping out cells.  That should
         # solve the "I" problem and improve overall quality.
 
         rows = get_rows(hlines, cropw, croph)
-        logging.info("%s: rows: %d" % (pngfname, len(rows)))
+        logging.debug("%s block %d: rows: %d" % (pngfname, blockno, len(rows)))
         cols = get_cols(vlines, cropw, croph)
-        logging.info("%s: cols: %d" % (pngfname, len(cols)))
+        logging.debug("%s block %d: cols: %d" % (pngfname, blockno, len(cols)))
         cells = get_cells(rows, cols)
 
         for row in range(len(rows)):
             for col in range(len(cols)):
                 text = ocr_cell(crop, cells, row, col, tmpdir)
                 if text:
-                    yield (blockno, row, col, text)
+                    c = cells[row][col]
+                    cx1 = x1 + c[0]
+                    cy1 = y1 + c[1]
+                    cx2 = x1 + c[2]
+                    cy2 = y1 + c[3]
+                    yield (blockno, row, col, (cx1, cy1, cx2, cy2), text)
         blockno += 1
 
 
@@ -247,25 +258,57 @@ def extract_pdf(filename):
     # extract table data from each page
     logging.debug("extracting images from %s" % filename)
     fileno = 0
-    for pngfile in pdfimages.pdf_images(filename, optimise=False, firstpage=0, lastpage=4):
+    for pngfile in pdfimages.pdf_images(filename, optimise=False, firstpage=1, lastpage=200):
 
         # TODO: Run unpaper on the PNG file to remove skew, rotation, and
         # noise.
 
-        for (blockno, row, col, text) in get_image_data(pngfile):
-            yield (fileno, blockno, row, col, text)
+        for (blockno, row, col, location, text) in get_image_data(pngfile):
+            yield (fileno, blockno, row, col, location, text)
         fileno += 1
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
 
 
-if __name__ == '__main__':
+def main():
     if DEBUG:
         logging.basicConfig(level=logging.DEBUG)
     if len(sys.argv) != 2:
-        print("Usage: %s FILENAME" % sys.argv[0])
+        print("Usage: %s <filename or docid>" % sys.argv[0])
     else:
         # split target pdf into pages
+        docid = None
+        s = requests.session()
+        s.headers['Content-Type'] = 'application/json'
         filename = sys.argv[1]
-        print('pageno\tblockno\trow\tcol\ttext')
-        for (pageno, blockno, row, col, text) in extract_pdf(filename):
-            print("%d\t%d\t%d\t%d\t%s" % (pageno, blockno, row, col, text))
+        if filename.isdigit():
+            docdata = s.get(DOC_API % int(filename)).json()
+            if len(docdata['segments']):
+                logging.error("Doc already has segments in DB.  Use --force to clear them.")
+                return
+            path = docdata['docset']['path']
+            docid = docdata['id']
+            if path[0] == '/':
+                path = path[1:]
+            fname = docdata['filename']
+            filename = os.path.join('..', 'pdf', path, fname)
+            if not os.path.exists(filename):
+                logging.error("File %s doesn't exist." % filename)
+                return
+
+        # print('pageno\tblockno\trow\tcol\ttext')
+        for (pageno, blockno, row, col, location, text) in extract_pdf(filename):
+            print("%d\t%d\t%d\t%d\t%s\t%s" % (pageno, blockno, row, col, location, 'text'))
+            if docid:
+                obj = {'doc_id': docid, 'page': pageno, 'row': row, 'col': col,
+                       'x1': location[0], 'y1': location[1], 'x2': location[2],
+                       'y2': location[3], 'ocrtext': text}
+                result = s.post(SEGMENT_API, data=json.dumps(obj))
+                try:
+                    j = result.json()
+                except ValueError:
+                    import pdb; pdb.set_trace()
+                    pass
+
+
+if __name__ == '__main__':
+    main()
