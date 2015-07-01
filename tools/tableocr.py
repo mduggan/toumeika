@@ -14,6 +14,7 @@ import os
 import json
 import logging
 import requests
+import shutil
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from shikin.pdf import pdfimages
@@ -30,6 +31,7 @@ H_MIN_PX = 200
 V_THRESH = 0.6
 V_MIN_PX = 200
 
+MIN_COL_WIDTH = MIN_ROW_HEIGHT = 7
 
 def get_vblocks(pix, w, h, thresh):
     """
@@ -84,45 +86,65 @@ def get_hlines(pix, w, h, thresh):
     lines = []
     for y in range(h):
         x1, x2 = (None, None)
+        best_x1, best_x2 = (None, None)
         black = 0
         run = 0
         for x in range(w):
             if pix[x, y] == 0:
                 black += 1
-                if not x1:
+                if x1 is None:
                     x1 = x
                 x2 = x
             else:
                 if black > run:
                     run = black
+                    best_x1 = x1
+                    best_x2 = x2
+                    x1, x2 = (None, None)
                 black = 0
+        if black > run:
+            run = black
+            best_x1 = x1
+            best_x2 = x2
         if run > thresh:
-            lines.append((x1, y, x2, y))
+            lines.append((best_x1, y, best_x2, y))
     return lines
 
 
-def get_vlines(pix, w, h, thresh):
+def get_vlines(pix, w, h, thresh, printlog=False):
     """
     Get start/end pixels of lines containing vertical runs of at least THRESH
     black pix
     """
     lines = []
+    if printlog:
+        print('get_vlines: %d, %d, %d' % (w, h, thresh))
     for x in range(w):
         y1, y2 = (None, None)
+        best_y1, best_y2 = (None, None)
         black = 0
         run = 0
         for y in range(h):
             if pix[x, y] == 0:
                 black += 1
-                if not y1:
+                if y1 is None:
                     y1 = y
                 y2 = y
             else:
                 if black > run:
                     run = black
+                    best_y1 = y1
+                    best_y2 = y2
+                    y1, y2 = (None, None)
                 black = 0
+        if black > run:
+            run = black
+            best_y1 = y1
+            best_y2 = y2
         if run > thresh:
-            lines.append((x, y1, x, y2))
+            lines.append((x, best_y1, x, best_y2))
+        if printlog:
+            print('%d (%s-%s): %d > %d?' % (x, best_y1, best_y2, run, thresh))
     return lines
 
 
@@ -138,6 +160,7 @@ def get_cols(vlines, w, h):
         if vlines[i][0] - vlines[i-1][0] > 1:
             cols.append((vlines[i-1][0], vlines[i-1][1], vlines[i][2], vlines[i][3]))
     # TODO: add area after last col
+    cols = filter(lambda x: x[2] - x[0] > MIN_COL_WIDTH, cols)
     return cols
 
 
@@ -153,6 +176,7 @@ def get_rows(hlines, w, h):
         if hlines[i][1] - hlines[i-1][3] > 1:
             rows.append((hlines[i-1][0], hlines[i-1][1], hlines[i][2], hlines[i][3]))
     # TODO: add area after last row
+    rows = filter(lambda x: x[3] - x[1] > MIN_ROW_HEIGHT, rows)
     return rows
 
 
@@ -170,7 +194,7 @@ def get_cells(rows, cols):
     return cells
 
 
-def ocr_cell(im, cells, x, y, tmpdir):
+def ocr_cell(im, cells, x, y, tmpdir, pngfname):
     """Return OCRed text from this cell"""
     fbase = os.path.join("%s/%d-%d" % (tmpdir, x, y))
     ftif = "%s.tif" % fbase
@@ -182,27 +206,45 @@ def ocr_cell(im, cells, x, y, tmpdir):
     region = region.point(lambda p: p > 200 and 255)
     # determine background color (most used color)
     histo = region.histogram()
-    bgcolor = 0 if histo[0] > histo[255] else 255
+    black_ratio = float(histo[0])/histo[255]
+    maybe_noisy = black_ratio > 0.33 and black_ratio < 3
+
+    #bgcolor = 0 if histo[0] > histo[255] else 255
     # trim remaining borders by finding top-left and bottom-right bg pixels
     pix = region.load()
     x1, y1 = 0, 0
     x2, y2 = region.size
     x2, y2 = x2-1, y2-1
-    while pix[x1, y1] != bgcolor and x1 < x2 and y1 < y2:
-        x1 += 1
-        y1 += 1
-    while pix[x2, y2] != bgcolor and x2 > 0 and y2 > 0:
-        x2 -= 1
-        y2 -= 1
+    #while pix[x1, y1] != bgcolor and x1 < x2 and y1 < y2:
+    #    x1 += 1
+    #    y1 += 1
+    #while pix[x2, y2] != bgcolor and x2 > 0 and y2 > 0:
+    #    x2 -= 1
+    #    y2 -= 1
     # save as TIFF and extract text with Tesseract OCR
     trimmed = region.crop((x1, y1, x2, y2))
-    logging.debug("region trim %d %d (%d,%d,%d,%d)" % (x, y, x1, y1, x2, y2))
+    logging.debug("trim and ocr %d %d (%d,%d,%d,%d)" % (x, y, x1, y1, x2, y2))
     if x1 >= x2 or y1 >= y2:
         logging.debug("nothing left.")
         return ''
     trimmed.save(ftif, "TIFF")
+    if DEBUG:
+        trimmed.save(pngfname + '-' + os.path.split(ftif)[1], "TIFF")
+
     subprocess.call(cmd, stderr=subprocess.PIPE)
     lines = filter(lambda x: x, [l.strip() for l in open(ftxt).readlines()])
+
+    if maybe_noisy and not lines:
+        logging.debug("Got nothing on noisy img: filter and run again")
+        cmd2 = ["convert", ftif, "-blur", "1", ftif+'-filtered.tif']
+        subprocess.call(cmd2, stderr=subprocess.PIPE)
+        cmd3 = ["tesseract", "-l", "jpn+eng", ftif+'-filtered.tif']
+        subprocess.call(cmd3, stderr=subprocess.PIPE)
+        lines = filter(lambda x: x, [l.strip() for l in open(ftxt).readlines()])
+
+    if DEBUG:
+        shutil.copyfile(ftxt, pngfname + '-' + os.path.split(ftxt)[1])
+
     return '\n'.join(lines)
 
 
@@ -218,31 +260,28 @@ def get_image_data(filename):
     for (x1, y1, x2, y2) in get_vblocks(allpix, totwidth, totheight, 20):
         crop = im.crop((x1, y1, x2, y2))
         if DEBUG:
-            crop.save(os.path.join(tmpdir, '%s-%d-%d-%d-%d.png' % (pngfname, x1, y1, x2, y2)))
+            crop.save('%s-%d-%d-%d-%d-%d.png' % (pngfname, blockno, x1, y1, x2, y2))
         pix = crop.load()
 
-        cropw = x2 - x1
-        croph = y2 - y1
-        logging.info("%s:%d: (%d,%d)-(%d-%d)" % (pngfname, blockno, x1, y1, y1, y2))
+        (cropw, croph) = crop.size
+        logging.info("%s:%d: (%d,%d)-(%d-%d)" % (pngfname, blockno, x1, y1, x2, y2))
         hthresh = max(H_MIN_PX, int((cropw) * H_THRESH))
         hlines = get_hlines(pix, cropw, croph, hthresh)
-        logging.debug("%s: hlines: %d" % (pngfname, len(hlines)))
         vthresh = max(V_MIN_PX, int((croph) * V_THRESH))
         vlines = get_vlines(pix, cropw, croph, vthresh)
-        logging.debug("%s: vlines: %d" % (pngfname, len(vlines)))
+        logging.debug("%s block %d: hlines: %d  vlines: %d" % (pngfname, blockno, len(hlines), len(vlines)))
 
         # TODO: fill white on the lines before cropping out cells.  That should
         # solve the "I" problem and improve overall quality.
 
         rows = get_rows(hlines, cropw, croph)
-        logging.debug("%s block %d: rows: %d" % (pngfname, blockno, len(rows)))
         cols = get_cols(vlines, cropw, croph)
-        logging.debug("%s block %d: cols: %d" % (pngfname, blockno, len(cols)))
+        logging.debug("%s block %d: rows: %d, cols: %d" % (pngfname, blockno, len(rows), len(cols)))
         cells = get_cells(rows, cols)
 
         for row in range(len(rows)):
             for col in range(len(cols)):
-                text = ocr_cell(crop, cells, row, col, tmpdir)
+                text = ocr_cell(crop, cells, row, col, tmpdir, '%s-%d' % (pngfname, blockno))
                 if text:
                     c = cells[row][col]
                     cx1 = x1 + c[0]
@@ -259,22 +298,32 @@ def extract_pdf(filename):
     logging.debug("extracting images from %s" % filename)
     fileno = 0
     for pngfile in pdfimages.pdf_images(filename, optimise=False, firstpage=1, lastpage=200):
-
-        # TODO: Run unpaper on the PNG file to remove skew, rotation, and
+        # TODO: Maybe run unpaper on the PNG file to remove skew, rotation, and
         # noise.
-
         for (blockno, row, col, location, text) in get_image_data(pngfile):
             yield (fileno, blockno, row, col, location, text)
         fileno += 1
-        #import pdb; pdb.set_trace()
 
 
 def main():
-    if DEBUG:
+    from argparse import ArgumentParser
+
+    p = ArgumentParser(description="Script to OCR documents with tables inside.")
+    p.add_argument("--verbose", "-v", action="store_true", help="be more verbose")
+    p.add_argument("--debug", "-d", action="store_true", help="dump debug images and ocr output")
+    p.add_argument('pdf', nargs='+', help='pdf filename or database doc id')
+
+    args = p.parse_args()
+
+    global DEBUG
+    DEBUG = args.debug
+
+    if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
-    if len(sys.argv) != 2:
-        print("Usage: %s <filename or docid>" % sys.argv[0])
     else:
+        logging.basicConfig(level=logging.INFO)
+
+    for filename in args.pdf:
         # split target pdf into pages
         docid = None
         s = requests.session()
@@ -284,16 +333,16 @@ def main():
             docdata = s.get(DOC_API % int(filename)).json()
             if len(docdata['segments']):
                 logging.error("Doc already has segments in DB.  Use --force to clear them.")
-                return
+                continue
             path = docdata['docset']['path']
             docid = docdata['id']
             if path[0] == '/':
                 path = path[1:]
             fname = docdata['filename']
             filename = os.path.join('..', 'pdf', path, fname)
-            if not os.path.exists(filename):
-                logging.error("File %s doesn't exist." % filename)
-                return
+        if not os.path.exists(filename):
+            logging.error("File %s doesn't exist." % filename)
+            continue
 
         # print('pageno\tblockno\trow\tcol\ttext')
         for (pageno, blockno, row, col, location, text) in extract_pdf(filename):
