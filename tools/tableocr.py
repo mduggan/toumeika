@@ -7,7 +7,7 @@ http://craiget.com/blog/extracting-table-data-from-pdfs-with-ocr/
 """
 
 from PIL import Image
-from PIL import ImageOps
+# from PIL import ImageOps
 import subprocess
 import sys
 import os
@@ -16,9 +16,13 @@ import logging
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from shikin.pdf import pdfimages
 
+DEBUG = True
+
 # minimum run of adjacent pixels to call something a line
-H_THRESH = 0.5
-V_THRESH = 0.5
+H_THRESH = 0.6
+H_MIN_PX = 200
+V_THRESH = 0.6
+V_MIN_PX = 200
 
 
 def get_vblocks(pix, w, h, thresh):
@@ -26,8 +30,18 @@ def get_vblocks(pix, w, h, thresh):
     Get vertical blocks separated by large segments of white.
     """
     # allow a few black pixels per row..
+    colthresh = 255 * 6
+    colsums = [sum(255-pix[x, y] for y in range(h)) for x in range(w)]
+
+    minx = 0
+    maxx = w - 1
+    while colsums[minx] < colthresh:
+        minx += 1
+    while colsums[maxx] < colthresh:
+        maxx -= 1
+
     rowthresh = 255 * 6
-    rowsums = [sum(255-pix[x, y] for x in range(w)) for y in range(h)]
+    rowsums = [sum(255-pix[x, y] for x in range(minx, maxx)) for y in range(h)]
 
     whiteruns = []
 
@@ -49,11 +63,11 @@ def get_vblocks(pix, w, h, thresh):
         whiteruns.pop(0)
 
     for run in filter(lambda x: x[1] - x[0] >= thresh, whiteruns):
-        yield (y0, run[0])
+        yield (minx, y0, maxx, run[0])
         y0 = run[1]
 
     if h - y0 > thresh:
-        yield (y0, h)
+        yield (minx, y0, maxx, h)
 
 
 def get_hlines(pix, w, h, thresh):
@@ -106,21 +120,33 @@ def get_vlines(pix, w, h, thresh):
     return lines
 
 
-def get_cols(vlines):
+def get_cols(vlines, w, h):
     """Get top-left and bottom-right coordinates for each column from a list of vertical lines"""
+    if not len(vlines):
+        return [(0, 0, w, h)]
     cols = []
+    if vlines[0][0] > 1:
+        # Area before the first line
+        cols.append((0, 0, vlines[0][0], h))
     for i in range(1, len(vlines)):
         if vlines[i][0] - vlines[i-1][0] > 1:
             cols.append((vlines[i-1][0], vlines[i-1][1], vlines[i][2], vlines[i][3]))
+    # TODO: add area after last col
     return cols
 
 
-def get_rows(hlines):
+def get_rows(hlines, w, h):
     """Get top-left and bottom-right coordinates for each row from a list of vertical lines"""
+    if not len(hlines):
+        return [(0, 0, w, h)]
     rows = []
+    if hlines[0][0] > 1:
+        # Area before the first line
+        rows.append((0, 0, w, hlines[0][1]))
     for i in range(1, len(hlines)):
         if hlines[i][1] - hlines[i-1][3] > 1:
             rows.append((hlines[i-1][0], hlines[i-1][1], hlines[i][2], hlines[i][3]))
+    # TODO: add area after last row
     return rows
 
 
@@ -146,12 +172,12 @@ def ocr_cell(im, cells, x, y, tmpdir):
     cmd = ["tesseract", "-l", "jpn+eng", ftif, fbase]
     # extract cell from whole image, grayscale (1-color channel), monochrome
     region = im.crop(cells[x][y])
-    region = ImageOps.grayscale(region)
+    #region = ImageOps.grayscale(region)
     region = region.point(lambda p: p > 200 and 255)
     # determine background color (most used color)
     histo = region.histogram()
     bgcolor = 0 if histo[0] > histo[255] else 255
-    # trim borders by finding top-left and bottom-right bg pixels
+    # trim remaining borders by finding top-left and bottom-right bg pixels
     pix = region.load()
     x1, y1 = 0, 0
     x2, y2 = region.size
@@ -183,22 +209,28 @@ def get_image_data(filename):
     assert im.mode == '1'
     totwidth, totheight = im.size
     blockno = 0
-    for (y1, y2) in get_vblocks(allpix, totwidth, totheight, 20):
-        crop = im.crop((0, y1, totwidth, y2))
-        crop.save(os.path.join(tmpdir, '%s-%d-%d-%d-%d.png' % (pngfname, 0, y1, totwidth, y2)))
+    for (x1, y1, x2, y2) in get_vblocks(allpix, totwidth, totheight, 20):
+        crop = im.crop((x1, y1, x2, y2))
+        if DEBUG:
+            crop.save(os.path.join(tmpdir, '%s-%d-%d-%d-%d.png' % (pngfname, x1, y1, x2, y2)))
         pix = crop.load()
-        logging.info("%s: %d x %d-%d" % (pngfname, totwidth, y1, y2))
-        hlines = get_hlines(pix, totwidth, y2-y1, int(totwidth * H_THRESH))
+
+        cropw = x2 - x1
+        croph = y2 - y1
+        logging.info("%s: (%d,%d)-(%d-%d)" % (pngfname, x1, y1, y1, y2))
+        hthresh = max(H_MIN_PX, int((cropw) * H_THRESH))
+        hlines = get_hlines(pix, cropw, croph, hthresh)
         logging.info("%s: hlines: %d" % (pngfname, len(hlines)))
-        vlines = get_vlines(pix, totwidth, y2-y1, int((y2-y1) * V_THRESH))
+        vthresh = max(V_MIN_PX, int((croph) * V_THRESH))
+        vlines = get_vlines(pix, cropw, croph, vthresh)
         logging.info("%s: vlines: %d" % (pngfname, len(vlines)))
 
         # TODO: fill white on the lines before cropping out cells.  That should
         # solve the "I" problem and improve overall quality.
 
-        rows = get_rows(hlines)
+        rows = get_rows(hlines, cropw, croph)
         logging.info("%s: rows: %d" % (pngfname, len(rows)))
-        cols = get_cols(vlines)
+        cols = get_cols(vlines, cropw, croph)
         logging.info("%s: cols: %d" % (pngfname, len(cols)))
         cells = get_cells(rows, cols)
 
@@ -215,7 +247,7 @@ def extract_pdf(filename):
     # extract table data from each page
     logging.debug("extracting images from %s" % filename)
     fileno = 0
-    for pngfile in pdfimages.pdf_images(filename, optimise=False, firstpage=2, lastpage=4):
+    for pngfile in pdfimages.pdf_images(filename, optimise=False, firstpage=0, lastpage=4):
 
         # TODO: Run unpaper on the PNG file to remove skew, rotation, and
         # noise.
@@ -223,10 +255,12 @@ def extract_pdf(filename):
         for (blockno, row, col, text) in get_image_data(pngfile):
             yield (fileno, blockno, row, col, text)
         fileno += 1
+        import pdb; pdb.set_trace()
 
 
 if __name__ == '__main__':
-    #logging.basicConfig(level=logging.DEBUG)
+    if DEBUG:
+        logging.basicConfig(level=logging.DEBUG)
     if len(sys.argv) != 2:
         print("Usage: %s FILENAME" % sys.argv[0])
     else:
