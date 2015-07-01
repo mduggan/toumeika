@@ -26,7 +26,7 @@ def check_pdf(pdfdir, pdffile, pdf_root, thumbnail_root, force_regen, optimise):
 
     pdf_fullpath = os.path.join(pdfdir, pdffile)
 
-    for pngpath in pdfimages.pdf_images(pdf_fullpath):
+    for pngpath in pdfimages.pdf_images(pdf_fullpath, firstpage=1, lastpage=1):
         logging.debug("%s -> %s" % (pngpath, thumbnailpath))
         os.rename(pngpath, thumbnailpath)
 
