@@ -13,7 +13,8 @@ import sys
 import os
 import logging
 
-import pdfimages
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+from shikin.pdf import pdfimages
 
 # minimum run of adjacent pixels to call something a line
 H_THRESH = 0.5

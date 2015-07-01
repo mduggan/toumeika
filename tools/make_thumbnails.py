@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import sys
 import logging
 from argparse import ArgumentParser
-import pdfimages
+
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+from shikin.pdf import pdfimages
 
 
 def check_pdf(pdfdir, pdffile, pdf_root, thumbnail_root, force_regen, optimise):
