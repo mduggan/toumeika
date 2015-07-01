@@ -15,10 +15,14 @@ To run the site:
 To do scraping:
  * requests
  * Poppler pdf utils
+ * lxml
 
 To make thumbnails:
  * optipng
  * ImageMagick
+
+For running the OCR process:
+ * Tesseract >=3.04 (+ eng and jpn lang packs)
 
 Initialising
 ------------
