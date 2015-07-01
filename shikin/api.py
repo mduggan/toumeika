@@ -4,11 +4,13 @@ Shikin, political donations database.
 """
 
 import os
-from flask import send_from_directory, request, jsonify
+from flask import send_file, send_from_directory, request, jsonify, abort
 from flask.ext import restless
 from . import app
-from .model import Document, Group, GroupType, DocType, PubType, DocSet
+from .model import Document, Group, GroupType, DocType, PubType, DocSet, DocSegment
 from sqlalchemy.orm.properties import ColumnProperty
+
+from .pdf import pdfimages
 
 # Create the Flask-Restless API manager.
 manager = restless.APIManager(app, flask_sqlalchemy_db=app.dbobj)
@@ -57,21 +59,28 @@ def _make_ro_api(table):
 
 # Make read-write "raw" APIs for backend use, and read-only apis for frontend
 # use
-for table in (Document, Group, GroupType, DocType, PubType, DocSet):
+for table in (Document, Group, GroupType, DocType, PubType, DocSet, DocSegment):
     _make_raw_api(table)
     _make_ro_api(table)
 
 
+@app.route('/doc/cached/<int:docid>/<int:pageno>')
 @app.route('/doc/cached/<int:docid>')
-def docpdf(docid):
-    """Adds the current user as follower of the given user."""
+def docpdf(docid, pageno=None):
+    """Adds the current user as follower of the given user.  Pageno is 1-indexed."""
     doc = Document.query.filter(Document.id == docid).first_or_404()
     path = doc.path
     if path.startswith('/'):
         path = path[1:]
     pdfdir = os.path.abspath(app.config['PDF_DIR'])
-    app.logger.info('%s in %s?' % (path, pdfdir))
-    return send_from_directory(pdfdir, path, as_attachment=True)
+    if pageno is not None:
+        pdf_fullpath = os.path.join(pdfdir, path)
+        app.logger.debug('Returning page %d of %s' % (pageno, pdf_fullpath))
+        for img in pdfimages.pdf_images(pdf_fullpath, optimise=False, autorotate=True, firstpage=pageno, lastpage=pageno):
+            return send_file(img)
+        abort(404)
+    else:
+        return send_from_directory(pdfdir, path, as_attachment=True)
 
 
 @app.route('/api/search/<query>')

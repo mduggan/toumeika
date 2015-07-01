@@ -11,11 +11,11 @@ from tmpdir import TemporaryDirectory
 rot_re = re.compile("Page rot:       (\d+)")
 
 
-def pdf_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=0, lastpage=1):
+def pdf_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=1, lastpage=1):
     """
     Extract images from the given pdf using pdfimages.  Optionally
     automatically flip and rotate the images as they come out.  Yields a series
-    of PNG paths.
+    of PNG paths.  Pages are 1-indexed!
 
     PNGs are created in a temporary directory, and can be moved or copied.  The
     directory and its contents will be deleted once the function completes.
@@ -42,7 +42,7 @@ def pdf_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=0, lastpa
         subprocess.call(split)
         outpattern = outfile_prefix + '-%03d-*.png'
 
-        pageno = 1
+        pageno = firstpage
         while glob.glob(outpattern % pageno):
             # there could be multiple images - find the big one.
             outfiles = glob.glob(outpattern % pageno)

@@ -19,3 +19,4 @@ app.babel = Babel(app)
 from . import views
 from . import api
 from . import pageapi
+from . import review

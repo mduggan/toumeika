@@ -150,7 +150,7 @@ class DocTags(Model):
 
     unique_doc_tag = UniqueConstraint('doc_id', 'tag_id')
 
-    doc = relationship(Document, uselist=False)
+    doc = relationship(Document, uselist=False, backref='tags')
     tag = relationship(Tag, uselist=False)
 
     def __repr__(self):
@@ -178,7 +178,7 @@ class DocSegment(Model):
     usertext = Column('usertext', Text(), nullable=True, index=True)
     review = Column('review', Integer(), nullable=False, index=True, default=0)
 
-    doc = relationship(Document, uselist=False)
+    doc = relationship(Document, uselist=False, backref='segments')
     children = relationship('DocSegment', backref=backref('parent', remote_side=[id]))
 
     @property
