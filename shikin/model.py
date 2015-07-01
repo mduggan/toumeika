@@ -28,9 +28,9 @@ class Group(Model):
     id = Column('id', Integer(), primary_key=True)
     name = Column('name', Text(), nullable=False, index=True, unique=True)
     type_id = Column('type_id', Text(), ForeignKey(GroupType.id), nullable=False, index=True)
-    parent_id = Column('parent_id', Integer(), ForeignKey('group.id'), nullable=True, index=True)
+    parent_id = Column('parent_id', Integer(), ForeignKey(id), nullable=True, index=True)
 
-    children = relationship("Group", backref=backref('parent', remote_side=[id]))
+    children = relationship('Group', backref=backref('parent', remote_side=[id]))
     type = relationship(GroupType, uselist=False)
     docs = relationship('Document', uselist=True)
 
@@ -155,3 +155,39 @@ class DocTags(Model):
 
     def __repr__(self):
         return 'DocTag<%d:%d>' % (self.doc_id, self.tag_id)
+
+
+class DocSegment(Model):
+    """Part of a document"""
+    id = Column('id', Integer(), primary_key=True)
+    parent_id = Column('parent_id', Integer(), ForeignKey(id), nullable=True, index=True)
+
+    doc_id = Column('doc_id', Integer(), ForeignKey(Document.id), nullable=False, index=True)
+    page = Column('page', Integer(), nullable=False)
+
+    # row and col are inside parent, or page if parent is null
+    row = Column('row', Integer(), nullable=False)
+    col = Column('col', Integer(), nullable=False)
+
+    x1 = Column('x1', Integer(), nullable=False)
+    y1 = Column('y1', Integer(), nullable=False)
+    x2 = Column('x2', Integer(), nullable=False)
+    y2 = Column('y2', Integer(), nullable=False)
+
+    ocrtext = Column('ocrtext', Text(), nullable=True, index=True)
+    usertext = Column('usertext', Text(), nullable=True, index=True)
+    review = Column('review', Integer(), nullable=False, index=True, default=0)
+
+    doc = relationship(Document, uselist=False)
+    children = relationship('DocSegment', backref=backref('parent', remote_side=[id]))
+
+    @property
+    def besttext(self):
+        return (self.usertext or self.ocrtext or '')
+
+    @property
+    def location(self):
+        return (self.x1, self.y1, self.x2, self.y2)
+
+    def __repr__(self):
+        return 'DocSegment<%d:(%d,%d,%d,%d)>' % (self.doc_id, self.x1, self.y1, self.x2, self.y2)
