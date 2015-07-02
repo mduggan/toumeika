@@ -30,6 +30,7 @@ H_THRESH = 0.6
 H_MIN_PX = 200
 V_THRESH = 0.6
 V_MIN_PX = 200
+EDGE_ERODE = 4
 
 MIN_COL_WIDTH = MIN_ROW_HEIGHT = 7
 
@@ -194,6 +195,39 @@ def get_cells(rows, cols):
     return cells
 
 
+def erode_edges(region, bgcol):
+    pix = region.load()
+    w, h = region.size
+
+    for x in range(w):
+        emax = min(x+1, EDGE_ERODE)
+        emax = min(w-x, emax)
+        if not emax:
+            continue
+        for y in range(0, emax):
+            if pix[x, y] == bgcol:
+                break
+            pix[x, y] = bgcol
+        for y in range(h-1, h-(emax+1), -1):
+            if pix[x, y] == bgcol:
+                break
+            pix[x, y] = bgcol
+
+    for y in range(h):
+        emax = min(y+1, EDGE_ERODE)
+        emax = min(h-y, emax)
+        if not emax:
+            continue
+        for x in range(0, emax):
+            if pix[x, y] == bgcol:
+                break
+            pix[x, y] = bgcol
+        for x in range(w-1, w-(emax+1), -1):
+            if pix[x, y] == bgcol:
+                break
+            pix[x, y] = bgcol
+
+
 def ocr_cell(im, cells, x, y, tmpdir, pngfname):
     """Return OCRed text from this cell"""
     fbase = os.path.join("%s/%d-%d" % (tmpdir, x, y))
@@ -208,42 +242,42 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
     histo = region.histogram()
     black_ratio = float(histo[0])/histo[255]
     maybe_noisy = black_ratio > 0.33 and black_ratio < 3
-
-    #bgcolor = 0 if histo[0] > histo[255] else 255
+    bgcolor = 0 if histo[0] > histo[255] else 255
     # trim remaining borders by finding top-left and bottom-right bg pixels
-    pix = region.load()
-    x1, y1 = 0, 0
-    x2, y2 = region.size
-    x2, y2 = x2-1, y2-1
-    #while pix[x1, y1] != bgcolor and x1 < x2 and y1 < y2:
-    #    x1 += 1
-    #    y1 += 1
-    #while pix[x2, y2] != bgcolor and x2 > 0 and y2 > 0:
-    #    x2 -= 1
-    #    y2 -= 1
-    # save as TIFF and extract text with Tesseract OCR
-    trimmed = region.crop((x1, y1, x2, y2))
-    logging.debug("trim and ocr %d %d (%d,%d,%d,%d)" % (x, y, x1, y1, x2, y2))
-    if x1 >= x2 or y1 >= y2:
-        logging.debug("nothing left.")
-        return ''
-    trimmed.save(ftif, "TIFF")
+
+    # FIXME: this could go badly if there happens to be a lot of junk in TL or
+    # BR.
     if DEBUG:
-        trimmed.save(pngfname + '-' + os.path.split(ftif)[1], "TIFF")
+        region.save(pngfname + '-preerode-' + os.path.split(ftif)[1], "TIFF")
+
+    erode_edges(region, bgcolor)
+
+    # save as TIFF and extract text with Tesseract OCR
+    logging.debug("ocr cell %d %d (bg %d) %dx%d" % (x, y, bgcolor, region.size[0], region.size[1]))
+    region.save(ftif, "TIFF")
+    if DEBUG:
+        region.save(pngfname + '-' + os.path.split(ftif)[1], "TIFF")
 
     subprocess.call(cmd, stderr=subprocess.PIPE)
     lines = filter(lambda x: x, [l.strip() for l in open(ftxt).readlines()])
 
-    if maybe_noisy and not lines:
-        logging.debug("Got nothing on noisy img: filter and run again")
-        cmd2 = ["convert", ftif, "-blur", "1", ftif+'-filtered.tif']
-        subprocess.call(cmd2, stderr=subprocess.PIPE)
-        cmd3 = ["tesseract", "-l", "jpn+eng", ftif+'-filtered.tif']
-        subprocess.call(cmd3, stderr=subprocess.PIPE)
-        lines = filter(lambda x: x, [l.strip() for l in open(ftxt).readlines()])
-
     if DEBUG:
         shutil.copyfile(ftxt, pngfname + '-' + os.path.split(ftxt)[1])
+
+    # TODO: Maybe deskew here.  convert $in -deskew 10 $out
+
+    if maybe_noisy and not lines:
+        logging.debug("Got nothing on noisy img: filter and run again")
+        filtertif = ftif+'-filtered.tif'
+        cmd2 = ["convert", ftif, "-morphology", "close", "square:1", filtertif]
+        subprocess.call(cmd2, stderr=subprocess.PIPE)
+        if DEBUG:
+            shutil.copyfile(filtertif, pngfname + '-' + os.path.split(filtertif)[1])
+        cmd3 = ["tesseract", "-l", "jpn+eng", filtertif, fbase]
+        subprocess.call(cmd3, stderr=subprocess.PIPE)
+        lines = filter(lambda x: x, [l.strip() for l in open(ftxt).readlines()])
+        if DEBUG:
+            shutil.copyfile(ftxt, pngfname + '-' + os.path.split(ftxt)[1] + '-filtered.txt')
 
     return '\n'.join(lines)
 
