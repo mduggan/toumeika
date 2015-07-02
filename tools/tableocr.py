@@ -196,9 +196,15 @@ def get_cells(rows, cols):
 
 
 def erode_edges(region, bgcol):
+    """
+    Move in from the edge and clear the image until we find a bgcol pixel.
+
+    Erodes a maximum of EDGE_ERODE pixels in from each side of the image.
+    """
     pix = region.load()
     w, h = region.size
 
+    # top and bottom
     for x in range(w):
         emax = min(x+1, EDGE_ERODE)
         emax = min(w-x, emax)
@@ -213,6 +219,7 @@ def erode_edges(region, bgcol):
                 break
             pix[x, y] = bgcol
 
+    # left and right
     for y in range(h):
         emax = min(y+1, EDGE_ERODE)
         emax = min(h-y, emax)
@@ -243,13 +250,11 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
     black_ratio = float(histo[0])/histo[255]
     maybe_noisy = black_ratio > 0.33 and black_ratio < 3
     bgcolor = 0 if histo[0] > histo[255] else 255
-    # trim remaining borders by finding top-left and bottom-right bg pixels
 
-    # FIXME: this could go badly if there happens to be a lot of junk in TL or
-    # BR.
     if DEBUG:
         region.save(pngfname + '-preerode-' + os.path.split(ftif)[1], "TIFF")
 
+    # trim remaining borders by finding first white pixel going in from edge
     erode_edges(region, bgcolor)
 
     # save as TIFF and extract text with Tesseract OCR
