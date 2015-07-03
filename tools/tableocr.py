@@ -31,6 +31,7 @@ H_MIN_PX = 200
 V_THRESH = 0.6
 V_MIN_PX = 200
 EDGE_ERODE = 4
+MAX_LINE_DRIFT = 5
 
 MIN_COL_WIDTH = MIN_ROW_HEIGHT = 7
 
@@ -86,12 +87,20 @@ def get_hlines(pix, w, h, thresh):
     """
     lines = []
     for y in range(h):
+        thisy = y
         x1, x2 = (None, None)
         best_x1, best_x2 = (None, None)
         black = 0
         run = 0
         for x in range(w):
-            if pix[x, y] == 0:
+            if black > 20 and pix[x, thisy] != 0 and abs(y - thisy) < MAX_LINE_DRIFT:
+                # ran off a good line - tweak y to see if it is sloped
+                if thisy > 0 and pix[x, thisy-1] == 0:
+                    thisy -= 1
+                elif thisy < h-1 and pix[x, thisy+1] == 0:
+                    thisy += 1
+
+            if pix[x, thisy] == 0:
                 black += 1
                 if x1 is None:
                     x1 = x
@@ -107,8 +116,9 @@ def get_hlines(pix, w, h, thresh):
             run = black
             best_x1 = x1
             best_x2 = x2
+        midy = y + (thisy-y) / 2
         if run > thresh:
-            lines.append((best_x1, y, best_x2, y))
+            lines.append((best_x1, midy, best_x2, midy))
     return lines
 
 
@@ -121,12 +131,20 @@ def get_vlines(pix, w, h, thresh, printlog=False):
     if printlog:
         print('get_vlines: %d, %d, %d' % (w, h, thresh))
     for x in range(w):
+        thisx = x
         y1, y2 = (None, None)
         best_y1, best_y2 = (None, None)
         black = 0
         run = 0
         for y in range(h):
-            if pix[x, y] == 0:
+            if black > 20 and pix[thisx, y] != 0 and abs(x - thisx) < MAX_LINE_DRIFT:
+                # ran off a good line - tweak x to see if it is sloped
+                if thisx > 0 and pix[thisx-1, y] == 0:
+                    thisx -= 1
+                elif thisx < w-1 and pix[thisx+1, y] == 0:
+                    thisx += 1
+
+            if pix[thisx, y] == 0:
                 black += 1
                 if y1 is None:
                     y1 = y
@@ -142,10 +160,11 @@ def get_vlines(pix, w, h, thresh, printlog=False):
             run = black
             best_y1 = y1
             best_y2 = y2
+        midx = x + (thisx-x) / 2
         if run > thresh:
-            lines.append((x, best_y1, x, best_y2))
+            lines.append((midx, best_y1, midx, best_y2))
         if printlog:
-            print('%d (%s-%s): %d > %d?' % (x, best_y1, best_y2, run, thresh))
+            print('%d (%s-%s): %d > %d?' % (midx, best_y1, best_y2, run, thresh))
     return lines
 
 
@@ -269,8 +288,6 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
     if DEBUG:
         shutil.copyfile(ftxt, pngfname + '-' + os.path.split(ftxt)[1])
 
-    # TODO: Maybe deskew here.  convert $in -deskew 10 $out
-
     if maybe_noisy and not lines:
         logging.debug("Got nothing on noisy img: filter and run again")
         filtertif = ftif+'-filtered.tif'
@@ -331,12 +348,16 @@ def get_image_data(filename):
         blockno += 1
 
 
-def extract_pdf(filename):
+def extract_pdf(filename, pageno):
     """Extract table data from pdf"""
     # extract table data from each page
     logging.debug("extracting images from %s" % filename)
     fileno = 0
-    for pngfile in pdfimages.pdf_images(filename, optimise=False, firstpage=1, lastpage=200):
+
+    firstpage = pageno or 1
+    lastpage = pageno
+
+    for pngfile in pdfimages.pdf_images(filename, optimise=False, firstpage=firstpage, lastpage=lastpage):
         # TODO: Maybe run unpaper on the PNG file to remove skew, rotation, and
         # noise.
         for (blockno, row, col, location, text) in get_image_data(pngfile):
@@ -351,6 +372,7 @@ def main():
     p.add_argument("--verbose", "-v", action="store_true", help="be more verbose")
     p.add_argument("--debug", "-d", action="store_true", help="dump debug images and ocr output")
     p.add_argument('pdf', nargs='+', help='pdf filename or database doc id')
+    p.add_argument("--page", "-p", type=int, help="single page number to run")
 
     args = p.parse_args()
 
@@ -384,7 +406,7 @@ def main():
             continue
 
         # print('pageno\tblockno\trow\tcol\ttext')
-        for (pageno, blockno, row, col, location, text) in extract_pdf(filename):
+        for (pageno, blockno, row, col, location, text) in extract_pdf(filename, args.page):
             print("%d\t%d\t%d\t%d\t%s\t%s" % (pageno, blockno, row, col, location, 'text'))
             if docid:
                 obj = {'doc_id': docid, 'page': pageno, 'row': row, 'col': col,
