@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: matthew@toumeika.jp\n"
-"POT-Creation-Date: 2015-07-01 15:38+0800\n"
+"POT-Creation-Date: 2015-07-04 17:42+0900\n"
 "PO-Revision-Date: 2015-06-23 21:34+0900\n"
 "Last-Translator: Matthew Duggan\n"
 "Language-Team: ja <LL@li.org>\n"
@@ -92,11 +92,11 @@ msgstr "政治団体"
 msgid "Declared Year"
 msgstr "年度"
 
-#: templates/document.html:26 templates/group.html:15
+#: templates/document.html:26 templates/group.html:15 templates/pubs.html:13
 msgid "Published"
 msgstr "公表日"
 
-#: templates/document.html:30
+#: templates/document.html:30 templates/pubs.html:11
 msgid "Publication Type"
 msgstr "公表分"
 
@@ -140,11 +140,11 @@ msgstr "団体名"
 msgid "Type"
 msgstr "政治団体の区分"
 
-#: templates/groupstable.html:12
+#: templates/groupstable.html:12 templates/pubs.html:14
 msgid "Documents"
 msgstr "報告書数"
 
-#: templates/groupstable.html:13
+#: templates/groupstable.html:13 templates/pubs.html:15
 msgid "Years"
 msgstr "年分別"
 
@@ -187,6 +187,16 @@ msgstr ""
 #: templates/index.html:38
 msgid "By Year"
 msgstr "年分別"
+
+#: templates/pubs.html:5
+#, fuzzy
+msgid "All Publications"
+msgstr "公表"
+
+#: templates/pubs.html:12
+#, fuzzy
+msgid "Document Type"
+msgstr "ファイル詳細"
 
 #~ msgid "政治資金検索"
 #~ msgstr "政治資金検索"
