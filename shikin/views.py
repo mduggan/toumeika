@@ -102,6 +102,7 @@ def docpage(docid):
     return render_template('document.html', pdfurl=doc.url, fname=doc.filename,
                            thumbnail=thumbnailpath, year=doc.year, docid=doc.id,
                            pubtype=doc.docset.pubtype.name,
+                           doctype=doc.docset.doctype.name,
                            published=doc.docset.published,
                            group=doc.group.name, group_id=doc.group.id,
                            grouptype=doc.group.type.name,
