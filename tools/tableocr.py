@@ -326,7 +326,7 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
 
     if histo[bgcolor]+MIN_FILLED_PX > cells[x][y].pxcount:
         logging.debug("ocr cell %d %d seems empty." % (x, y))
-        return ""
+        return None
 
     # save as TIFF and extract text with Tesseract OCR
     logging.debug("ocr cell %d %d (bg %d) %dx%d" % (x, y, bgcolor, region.size[0], region.size[1]))
@@ -346,6 +346,7 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
         cmd2 = ["convert", ftif, "-morphology", "close", "square:1", filtertif]
         subprocess.call(cmd2, stderr=subprocess.PIPE)
         ftif = filtertif
+        cmd = ["tesseract", "-l", "jpn+eng", ftif, fbase]
         if DEBUG:
             shutil.copyfile(ftif, pngfname + '-' + os.path.split(ftif)[1])
         subprocess.call(cmd, stderr=subprocess.PIPE)
@@ -394,7 +395,7 @@ def get_image_data(filename):
         for row in range(len(rows)):
             for col in range(len(cols)):
                 text = ocr_cell(crop, cells, row, col, tmpdir, '%s-%d' % (pngfname, blockno))
-                if text:
+                if text is not None:
                     c = cells[row][col]
                     yield (blockno, row, col, c.offset(box.x1, box.y1), text)
         blockno += 1
@@ -425,6 +426,7 @@ def main():
     p.add_argument("--debug", "-d", action="store_true", help="dump debug images and ocr output")
     p.add_argument('pdf', nargs='+', help='pdf filename or database doc id')
     p.add_argument("--page", "-p", type=int, help="single page number to run")
+    p.add_argument("--force", "-f", action="store_true", help="continue even if segments already in db (identical ones will be ignored)")
 
     args = p.parse_args()
 
@@ -439,14 +441,19 @@ def main():
     for filename in args.pdf:
         # split target pdf into pages
         docid = None
+        existing_segments = {}
         s = requests.session()
         s.headers['Content-Type'] = 'application/json'
         filename = sys.argv[1]
         if filename.isdigit():
             docdata = s.get(DOC_API % int(filename)).json()
             if len(docdata['segments']):
-                logging.error("Doc already has segments in DB.  Use --force to clear them.")
-                continue
+                if not args.force:
+                    logging.error("Doc already has segments in DB.  Use --force to continue.")
+                    continue
+                segments = docdata['segments']
+                for seg in segments:
+                    existing_segments[(seg['page'], seg['x1'], seg['y1'], seg['x2'], seg['y2'])] = seg
             path = docdata['docset']['path']
             docid = docdata['id']
             if path[0] == '/':
@@ -458,12 +465,15 @@ def main():
             continue
 
         # print('pageno\tblockno\trow\tcol\ttext')
-        for (pageno, blockno, row, col, location, text) in extract_pdf(filename, args.page):
-            print("%d\t%d\t%d\t%d\t%s\t%s" % (pageno, blockno, row, col, location, 'text'))
+        for (pageno, blockno, row, col, loc, text) in extract_pdf(filename, args.page):
+            print("%d\t%d\t%d\t%d\t%s\t%s" % (pageno, blockno, row, col, loc, 'text'))
             if docid:
+                if (pageno, loc.x1, loc.y1, loc.x2, loc.y2) in existing_segments:
+                    logging.info("Already in DB, skipping")
+                    continue
                 obj = {'doc_id': docid, 'page': pageno, 'row': row, 'col': col,
-                       'x1': location.x1, 'y1': location.y1, 'x2': location.x2,
-                       'y2': location.y2, 'ocrtext': text}
+                       'x1': loc.x1, 'y1': loc.y1, 'x2': loc.x2,
+                       'y2': loc.y2, 'ocrtext': text}
                 result = s.post(SEGMENT_API, data=json.dumps(obj))
                 try:
                     j = result.json()
