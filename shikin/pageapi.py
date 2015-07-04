@@ -88,7 +88,7 @@ def docset_summary():
            .query(DocSet, func.count(Document.id), func.min(Document.year), func.max(Document.year))\
            .join(Document)\
            .group_by(DocSet.id)
-    data = [{'pubtype_id': x.pubtype_id, 'doctype_id': x.doctype_id,
+    data = [{'id': x.id, 'pubtype_id': x.pubtype_id, 'doctype_id': x.doctype_id,
              'published': str(x.published), 'doccount': count,
              'minyear': minyear, 'maxyear': maxyear} for (x, count, minyear, maxyear) in q.all()]
     return jsonify({'objects': data})

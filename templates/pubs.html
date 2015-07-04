@@ -34,7 +34,9 @@ $(function() {
     },
     "order": [[2, "desc"], [1, "desc"], [0, "desc"]],
     "columns": [
-        { "data": "pubtype_id", "render": function (data) { return pubtypes[data]; } },
+        { "data": "pubtype_id", "render": function (data, type, full) {
+            return '<a href="/pub/'+full.id+'">'+pubtypes[data]+'</a>';
+         } },
         { "data": "doctype_id", "render": function (data) { return doctypes[data]; } },
         { "data": "published" },
         { "data": "doccount" },
