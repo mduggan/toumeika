@@ -16,6 +16,7 @@
   float: left;
   border: 3px solid #C00000;
   overflow: hidden;
+  display: none;
 }
 
 #overlay {
@@ -24,6 +25,7 @@
   float: left;
   border: 2px solid #000000;
   overflow: visible;
+  display: none;
 }
 
 </style>
@@ -34,7 +36,8 @@
   <div class="row">
     <div id="pageimage">
       <div id="highlight"> </div>
-      <div id="overlay" class="col-md-6">
+      <div class="row">
+      <div id="overlay" class="col-md-6 col-md-offset-3">
           <div class="col-md-6">
           <p>OCR'd text:</p>
           <pre>{{ocrtext}}</pre>
@@ -45,12 +48,14 @@
             <div class="form-group">
               <input type="hidden" name="segment_id" value="{{segment_id}}">
               <label class="sr-only" for="usertext">Correct OCR text:</label>
-              <textarea id="usertext" name="usertext" class="form-control" rows="{{textlines}}">{{text}}</textarea>
-              <button type="submit" class="btn btn-success" value="save" name="save"><i class="fa fa-check"></i> Save</button>
+              <textarea id="usertext" name="usertext" class="form-control" rows="{{textlines+1}}">{{text}}</textarea>
+              <button type="submit" class="btn btn-success" value="save" name="save" id="savebutton"><i class="fa fa-check"></i> Save</button>
               <button type="input" class="btn btn-default" value="skip" name="skip"><i class="fa fa-forward"></i> Skip</button>
+              <button type="input" class="btn btn-warning" value="undo" name="undo"><i class="fa fa-undo"></i> Undo</button>
             </div>
           </form>
           </div>
+      </div>
       </div>
     </div>
   </div>
@@ -84,8 +89,14 @@ $(function() {
 
     var overlay = $('#overlay');
     overlay.css('top', '' + y2 + 'px');
-    overlay.css('left', '0px');
-    console.log('Block: ' + x1 + ',' + y1 + ' - ' + x2 + ','+ y2 + 'px');
+    overlay.css('margin-right', '25%');
+    highlight.css('display', 'inline');
+    overlay.css('display', 'inline');
+    //console.log('Block: ' + x1 + ',' + y1 + ' - ' + x2 + ','+ y2 + 'px');
+
+    var lastid = {{lastid}};
+    document.getElementById("usertext").focus();
+    window.scrollTo(0, y1-300);
 });
 </script>
 {% endblock %}

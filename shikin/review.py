@@ -11,6 +11,8 @@ from .model import DocSegment
 @app.route('/review', methods=['GET', 'POST'])
 def review():
     """ Front page """
+
+    sid = None
     if request.method == 'POST':
         data = request.form
         sid = data['segment_id']
@@ -30,7 +32,7 @@ def review():
     # First search for an exact group match
     d = DocSegment.query\
                   .filter(DocSegment.ocrtext != None)\
-                  .order_by(DocSegment.review)\
+                  .order_by(DocSegment.review, DocSegment.doc_id, DocSegment.page, DocSegment.y1)\
                   .first()
     if d is None:
         abort(404)
@@ -39,4 +41,5 @@ def review():
     lines = len(dtext.splitlines())
     return render_template('review.html', doc_id=d.doc_id, page=d.page+1,
                            ocrtext=dtext, text=d.besttext, segment_id=d.id,
-                           x1=d.x1, x2=d.x2, y1=d.y1, y2=d.y2, textlines=lines)
+                           x1=d.x1, x2=d.x2, y1=d.y1, y2=d.y2, textlines=lines,
+                           lastid=sid)

@@ -174,6 +174,8 @@ class DocSegment(Model):
     x2 = Column('x2', Integer(), nullable=False)
     y2 = Column('y2', Integer(), nullable=False)
 
+    unique_segment = UniqueConstraint('doc_id', 'page', 'x1', 'x2', 'y1', 'y2')
+
     ocrtext = Column('ocrtext', Text(), nullable=True, index=True)
     usertext = Column('usertext', Text(), nullable=True, index=True)
     review = Column('review', Integer(), nullable=False, index=True, default=0)
