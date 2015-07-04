@@ -31,9 +31,49 @@ H_MIN_PX = 200
 V_THRESH = 0.6
 V_MIN_PX = 200
 EDGE_ERODE = 4
-MAX_LINE_DRIFT = 5
+MAX_LINE_DRIFT = 10
+MIN_COL_WIDTH = MIN_ROW_HEIGHT = 20
+NOSIE_RATIO = 5.0
+MIN_FILLED_PX = 20
 
-MIN_COL_WIDTH = MIN_ROW_HEIGHT = 7
+
+class Box():
+    def __init__(self, x1, y1, x2, y2):
+        self.x1 = min(x1, x2)
+        self.x2 = max(x1, x2)
+        self.y1 = min(y1, y2)
+        self.y2 = max(y1, y2)
+
+    @property
+    def width(self):
+        return self.x2 - self.x1
+
+    @property
+    def height(self):
+        return self.y2 - self.y1
+
+    @property
+    def midx(self):
+        return self.x1 + (self.x2 - self.x1)/2
+
+    @property
+    def midy(self):
+        return self.y1 + (self.y2 - self.y1)/2
+
+    @property
+    def tup(self):
+        return (self.x1, self.y1, self.x2, self.y2)
+
+    @property
+    def tostr(self):
+        return '%d-%d-%d-%d' % (self.x1, self.y1, self.x2, self.y2)
+
+    def offset(self, x, y):
+        return Box(self.x1+x, self.y1+y, self.x2+x, self.y2+y)
+
+    def __repr__(self):
+        return '(%d,%d)-(%d,%d)' % (self.x1, self.y1, self.x2, self.y2)
+
 
 def get_vblocks(pix, w, h, thresh):
     """
@@ -73,11 +113,11 @@ def get_vblocks(pix, w, h, thresh):
         whiteruns.pop(0)
 
     for run in filter(lambda x: x[1] - x[0] >= thresh, whiteruns):
-        yield (minx, y0, maxx, run[0])
+        yield Box(minx, y0, maxx, run[0])
         y0 = run[1]
 
     if h - y0 > thresh:
-        yield (minx, y0, maxx, h)
+        yield Box(minx, y0, maxx, h)
 
 
 def get_hlines(pix, w, h, thresh):
@@ -116,9 +156,8 @@ def get_hlines(pix, w, h, thresh):
             run = black
             best_x1 = x1
             best_x2 = x2
-        midy = y + (thisy-y) / 2
         if run > thresh:
-            lines.append((best_x1, midy, best_x2, midy))
+            lines.append(Box(best_x1, min(y, thisy), best_x2, max(y, thisy)))
     return lines
 
 
@@ -160,57 +199,61 @@ def get_vlines(pix, w, h, thresh, printlog=False):
             run = black
             best_y1 = y1
             best_y2 = y2
-        midx = x + (thisx-x) / 2
         if run > thresh:
-            lines.append((midx, best_y1, midx, best_y2))
+            lines.append(Box(min(x, thisx), best_y1, max(x, thisx), best_y2))
         if printlog:
-            print('%d (%s-%s): %d > %d?' % (midx, best_y1, best_y2, run, thresh))
+            print('(%d,%s)-(%d,%s): %d > %d?' % (x, best_y1, thisx, best_y2, run, thresh))
     return lines
 
 
 def get_cols(vlines, w, h):
     """Get top-left and bottom-right coordinates for each column from a list of vertical lines"""
     if not len(vlines):
-        return [(0, 0, w, h)]
+        return [Box(0, 0, w, h)]
     cols = []
-    if vlines[0][0] > 1:
-        # Area before the first line
-        cols.append((0, 0, vlines[0][0], h))
+
+    # Area before the first vline
+    if vlines[0].y1 > 1:
+        cols.append(Box(0, 0, vlines[0].midx, h))
+
     for i in range(1, len(vlines)):
-        if vlines[i][0] - vlines[i-1][0] > 1:
-            cols.append((vlines[i-1][0], vlines[i-1][1], vlines[i][2], vlines[i][3]))
-    # TODO: add area after last col
-    cols = filter(lambda x: x[2] - x[0] > MIN_COL_WIDTH, cols)
+        cols.append(Box(vlines[i-1].midx, vlines[i-1].midy, vlines[i].midx, vlines[i].midy))
+
+    # Area after last vline
+    if w - vlines[-1].midx > 1:
+        cols.append(Box(vlines[-1].midx, 0, w, h))
+    cols = filter(lambda x: x.width > MIN_COL_WIDTH, cols)
     return cols
 
 
 def get_rows(hlines, w, h):
     """Get top-left and bottom-right coordinates for each row from a list of vertical lines"""
     if not len(hlines):
-        return [(0, 0, w, h)]
+        return [Box(0, 0, w, h)]
     rows = []
-    if hlines[0][0] > 1:
-        # Area before the first line
-        rows.append((0, 0, w, hlines[0][1]))
+
+    # Area before the first hline
+    if hlines[0].x1 > 1:
+        rows.append(Box(0, 0, w, hlines[0].midy))
+
     for i in range(1, len(hlines)):
-        if hlines[i][1] - hlines[i-1][3] > 1:
-            rows.append((hlines[i-1][0], hlines[i-1][1], hlines[i][2], hlines[i][3]))
-    # TODO: add area after last row
-    rows = filter(lambda x: x[3] - x[1] > MIN_ROW_HEIGHT, rows)
+        rows.append(Box(hlines[i-1].midx, hlines[i-1].midy, hlines[i].midx, hlines[i].midy))
+
+    # Area after last hline
+    if h - hlines[-1].y2 > 1:
+        rows.append(Box(0, hlines[-1].midy, w, h))
+
+    rows = filter(lambda x: x.height > MIN_ROW_HEIGHT, rows)
     return rows
 
 
-def get_cells(rows, cols):
+def get_cells(rows, cols, w, h):
     """Get top-left and bottom-right coordinates for each cell usings row and column coordinates"""
     cells = []
     for i, row in enumerate(rows):
         cells.append([None]*len(cols))
         for j, col in enumerate(cols):
-            x1 = col[0]
-            y1 = row[1]
-            x2 = col[2]
-            y2 = row[3]
-            cells[i][j] = (x1, y1, x2, y2)
+            cells[i][j] = Box(col.x1, row.y1, col.x2, row.y2)
     return cells
 
 
@@ -261,14 +304,18 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
     ftxt = "%s.txt" % fbase
     cmd = ["tesseract", "-l", "jpn+eng", ftif, fbase]
     # extract cell from whole image, grayscale (1-color channel), monochrome
-    region = im.crop(cells[x][y])
+    region = im.crop(cells[x][y].tup)
     # region = ImageOps.grayscale(region)
     region = region.point(lambda p: p > 200 and 255)
     # determine background color (most used color)
     histo = region.histogram()
     black_ratio = float(histo[0])/histo[255]
-    maybe_noisy = black_ratio > 0.33 and black_ratio < 3
+    maybe_noisy = black_ratio > 1/NOSIE_RATIO and black_ratio < NOSIE_RATIO
     bgcolor = 0 if histo[0] > histo[255] else 255
+
+    if histo[bgcolor]+MIN_FILLED_PX > sum(histo):
+        logging.debug("cell seems empty.")
+        return ""
 
     if DEBUG:
         region.save(pngfname + '-preerode-' + os.path.split(ftif)[1], "TIFF")
@@ -301,6 +348,13 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
         if DEBUG:
             shutil.copyfile(ftxt, pngfname + '-' + os.path.split(ftxt)[1] + '-filtered.txt')
 
+    if not lines:
+        logging.debug("Retrying with PSM 8")
+        cmd4 = ["tesseract", "-l", "jpn+eng", "-psm", "8", ftif, fbase]
+        subprocess.call(cmd4, stderr=subprocess.PIPE)
+        if DEBUG:
+            shutil.copyfile(ftxt, pngfname + '-' + os.path.split(ftxt)[1] + '-psm8.txt')
+
     return '\n'.join(lines)
 
 
@@ -313,38 +367,31 @@ def get_image_data(filename):
     assert im.mode == '1'
     totwidth, totheight = im.size
     blockno = 0
-    for (x1, y1, x2, y2) in get_vblocks(allpix, totwidth, totheight, 20):
-        crop = im.crop((x1, y1, x2, y2))
+    for box in get_vblocks(allpix, totwidth, totheight, 20):
+        crop = im.crop(box.tup)
         if DEBUG:
-            crop.save('%s-%d-%d-%d-%d-%d.png' % (pngfname, blockno, x1, y1, x2, y2))
+            crop.save('%s-%d-%s.png' % (pngfname, blockno, box.tostr))
         pix = crop.load()
 
         (cropw, croph) = crop.size
-        logging.info("%s:%d: (%d,%d)-(%d-%d)" % (pngfname, blockno, x1, y1, x2, y2))
+        logging.info("%s:%d: %s" % (pngfname, blockno, box))
         hthresh = max(H_MIN_PX, int((cropw) * H_THRESH))
         hlines = get_hlines(pix, cropw, croph, hthresh)
         vthresh = max(V_MIN_PX, int((croph) * V_THRESH))
         vlines = get_vlines(pix, cropw, croph, vthresh)
         logging.debug("%s block %d: hlines: %d  vlines: %d" % (pngfname, blockno, len(hlines), len(vlines)))
 
-        # TODO: fill white on the lines before cropping out cells.  That should
-        # solve the "I" problem and improve overall quality.
-
         rows = get_rows(hlines, cropw, croph)
         cols = get_cols(vlines, cropw, croph)
         logging.debug("%s block %d: rows: %d, cols: %d" % (pngfname, blockno, len(rows), len(cols)))
-        cells = get_cells(rows, cols)
+        cells = get_cells(rows, cols, cropw, croph)
 
         for row in range(len(rows)):
             for col in range(len(cols)):
                 text = ocr_cell(crop, cells, row, col, tmpdir, '%s-%d' % (pngfname, blockno))
                 if text:
                     c = cells[row][col]
-                    cx1 = x1 + c[0]
-                    cy1 = y1 + c[1]
-                    cx2 = x1 + c[2]
-                    cy2 = y1 + c[3]
-                    yield (blockno, row, col, (cx1, cy1, cx2, cy2), text)
+                    yield (blockno, row, col, c.offset(box.x1, box.y1), text)
         blockno += 1
 
 
@@ -410,8 +457,8 @@ def main():
             print("%d\t%d\t%d\t%d\t%s\t%s" % (pageno, blockno, row, col, location, 'text'))
             if docid:
                 obj = {'doc_id': docid, 'page': pageno, 'row': row, 'col': col,
-                       'x1': location[0], 'y1': location[1], 'x2': location[2],
-                       'y2': location[3], 'ocrtext': text}
+                       'x1': location.x1, 'y1': location.y1, 'x2': location.x2,
+                       'y2': location.y2, 'ocrtext': text}
                 result = s.post(SEGMENT_API, data=json.dumps(obj))
                 try:
                     j = result.json()
