@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="container">
+  <div class="page-header">
+     <h2><i class="fa fa-book"></i> {{_('All Publications')}}</h2>
+  </div>
+  <div class="row">
+     <table class="table table-hover table-striped" id="pubs" width="100%">
+      <thead>
+            <tr>
+                <th>{{_('Publication Type')}}</th>
+                <th>{{_('Document Type')}}</th>
+                <th>{{_('Published')}}</th>
+                <th>{{_('Documents')}}</th>
+                <th>{{_('Years')}}</th>
+            </tr>
+        </thead>
+     </table>
+   </div>
+</div>
+{% endblock %}
+{% block extrafooter %}
+<script type="text/javascript">
+var doctypes = ({{doctypes|safe}});
+var pubtypes = ({{pubtypes|safe}});
+
+$(function() {
+  tbl = $('#pubs').DataTable({
+    "language": { "url": "/static/dt_lang/{{g.locale}}.json" },
+    "processing": true,
+    "ajax": {
+      "url": "/api/summary/doc_sets",
+      "dataSrc": function (json) { return json.objects; }
+    },
+    "order": [[2, "desc"], [1, "desc"], [0, "desc"]],
+    "columns": [
+        { "data": "pubtype_id", "render": function (data) { return pubtypes[data]; } },
+        { "data": "doctype_id", "render": function (data) { return doctypes[data]; } },
+        { "data": "published" },
+        { "data": "doccount" },
+        { "data": "minyear", "render": function (data, type, full) {
+          return full.minyear + '-' + full.maxyear; }, "orderable": false }
+    ]
+  });
+});
+</script>
+{% endblock %}
