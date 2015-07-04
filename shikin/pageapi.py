@@ -4,7 +4,7 @@ Pager API calls for use with DataTables on the frontend
 
 from flask import request, jsonify
 from . import app
-from .model import Group, Document, GroupType  # , DocType, PubType, DocSet
+from .model import Group, Document, GroupType, DocSet  # , DocType, PubType
 
 
 from sqlalchemy import desc, func
@@ -80,3 +80,15 @@ def year_summary():
                  .order_by(Document.year).group_by(Document.year)
     data = dict(q.all())
     return jsonify(data)
+
+
+@app.route('/api/summary/doc_sets')
+def docset_summary():
+    q = app.dbobj.session\
+           .query(DocSet, func.count(Document.id), func.min(Document.year), func.max(Document.year))\
+           .join(Document)\
+           .group_by(DocSet.id)
+    data = [{'pubtype_id': x.pubtype_id, 'doctype_id': x.doctype_id,
+             'published': str(x.published), 'doccount': count,
+             'minyear': minyear, 'maxyear': maxyear} for (x, count, minyear, maxyear) in q.all()]
+    return jsonify({'objects': data})
