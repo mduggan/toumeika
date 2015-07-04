@@ -68,6 +68,10 @@ class Box():
     def tostr(self):
         return '%d-%d-%d-%d' % (self.x1, self.y1, self.x2, self.y2)
 
+    @property
+    def pxcount(self):
+        return (self.x2-self.x1)*(self.y2-self.y1)
+
     def offset(self, x, y):
         return Box(self.x1+x, self.y1+y, self.x2+x, self.y2+y)
 
@@ -313,15 +317,16 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
     maybe_noisy = black_ratio > 1/NOSIE_RATIO and black_ratio < NOSIE_RATIO
     bgcolor = 0 if histo[0] > histo[255] else 255
 
-    if histo[bgcolor]+MIN_FILLED_PX > sum(histo):
-        logging.debug("cell seems empty.")
-        return ""
-
     if DEBUG:
         region.save(pngfname + '-preerode-' + os.path.split(ftif)[1], "TIFF")
 
     # trim remaining borders by finding first white pixel going in from edge
     erode_edges(region, bgcolor)
+    histo = region.histogram()
+
+    if histo[bgcolor]+MIN_FILLED_PX > cells[x][y].pxcount:
+        logging.debug("ocr cell %d %d seems empty." % (x, y))
+        return ""
 
     # save as TIFF and extract text with Tesseract OCR
     logging.debug("ocr cell %d %d (bg %d) %dx%d" % (x, y, bgcolor, region.size[0], region.size[1]))
@@ -340,10 +345,10 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
         filtertif = ftif+'-filtered.tif'
         cmd2 = ["convert", ftif, "-morphology", "close", "square:1", filtertif]
         subprocess.call(cmd2, stderr=subprocess.PIPE)
+        ftif = filtertif
         if DEBUG:
-            shutil.copyfile(filtertif, pngfname + '-' + os.path.split(filtertif)[1])
-        cmd3 = ["tesseract", "-l", "jpn+eng", filtertif, fbase]
-        subprocess.call(cmd3, stderr=subprocess.PIPE)
+            shutil.copyfile(ftif, pngfname + '-' + os.path.split(ftif)[1])
+        subprocess.call(cmd, stderr=subprocess.PIPE)
         lines = filter(lambda x: x, [l.strip() for l in open(ftxt).readlines()])
         if DEBUG:
             shutil.copyfile(ftxt, pngfname + '-' + os.path.split(ftxt)[1] + '-filtered.txt')
