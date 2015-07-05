@@ -4,7 +4,7 @@ Shikin review page
 """
 
 from flask import render_template, abort, request
-from . import app
+from . import app, ocrfix
 from .model import DocSegment
 
 
@@ -37,9 +37,14 @@ def review():
     if d is None:
         abort(404)
 
-    dtext = d.ocrtext
-    lines = len(dtext.splitlines())
+    if d.usertext is None:
+        txt = ocrfix.guess_fix(d.ocrtext)
+    else:
+        txt = d.usertext
+
+    lines = max(len(d.ocrtext.splitlines()), len(txt.splitlines()))
+
     return render_template('review.html', doc_id=d.doc_id, page=d.page+1,
-                           ocrtext=dtext, text=d.besttext, segment_id=d.id,
+                           ocrtext=d.ocrtext, text=txt, segment_id=d.id,
                            x1=d.x1, x2=d.x2, y1=d.y1, y2=d.y2, textlines=lines,
                            lastid=sid)
