@@ -269,10 +269,12 @@ def erode_edges(region, bgcol):
     """
     pix = region.load()
     w, h = region.size
+    erode_x = min(h, EDGE_ERODE)
+    erode_y = min(w, EDGE_ERODE)
 
     # top and bottom
     for x in range(w):
-        emax = min(x+1, EDGE_ERODE)
+        emax = min(x+1, erode_x)
         emax = min(w-x, emax)
         if not emax:
             continue
@@ -287,7 +289,7 @@ def erode_edges(region, bgcol):
 
     # left and right
     for y in range(h):
-        emax = min(y+1, EDGE_ERODE)
+        emax = min(y+1, erode_y)
         emax = min(h-y, emax)
         if not emax:
             continue
@@ -313,7 +315,7 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
     region = region.point(lambda p: p > 200 and 255)
     # determine background color (most used color)
     histo = region.histogram()
-    black_ratio = float(histo[0])/histo[255]
+    black_ratio = float(histo[0])/(histo[255]+0.01)
     maybe_noisy = black_ratio > 1/NOSIE_RATIO and black_ratio < NOSIE_RATIO
     bgcolor = 0 if histo[0] > histo[255] else 255
 
