@@ -7,7 +7,7 @@ Shikin, political donations database.
 from argparse import ArgumentParser
 
 import shikin
-from shikin.model import GroupType, DocType, PubType
+from shikin.model import GroupType, DocType, PubType, User
 
 
 def initdb_command(args):
@@ -43,6 +43,13 @@ def initdb_command(args):
         db.session.add(PubType(u'追加分'))
         db.session.add(PubType(u'解散支部分'))
         db.session.commit()
+
+    users = User.query.count()
+    if users == 0:
+        db.session.add(User('admin'))
+        db.session.commit()
+
+    print('Seeded tables which need it.')
 
 
 def dropdb_command(args):

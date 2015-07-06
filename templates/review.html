@@ -40,15 +40,15 @@
       <div id="overlay" class="col-md-6 col-md-offset-3">
           <div class="col-md-6">
           <p>OCR'd text:</p>
-          <pre>{{ocrtext}}</pre>
+          <pre id="ocrtext"></pre>
           </div>
           <div class="col-md-6">
           <p>Review text:</p>
           <form class="form" role="form" name="textform" method="post">
             <div class="form-group">
-              <input type="hidden" name="segment_id" value="{{segment_id}}">
+              <input type="hidden" name="segment_id" value="-1">
               <label class="sr-only" for="usertext">Correct OCR text:</label>
-              <textarea id="usertext" name="usertext" class="form-control" rows="{{textlines+1}}">{{text}}</textarea>
+              <textarea id="usertext" name="usertext" class="form-control" rows="2"></textarea>
               <button type="submit" class="btn btn-success" value="save" name="save" id="savebutton"><i class="fa fa-check"></i> Save</button>
               <button type="input" class="btn btn-default" value="skip" name="skip"><i class="fa fa-forward"></i> Skip</button>
               <button type="input" class="btn btn-warning" value="undo" name="undo"><i class="fa fa-undo"></i> Undo</button>
@@ -66,6 +66,8 @@
 {% block extrafooter%}
 <script type="text/javascript">
 $(function() {
+
+    var segdata = {{segdata|safe}};
     var imgw = 3510.0;
     var imgh = 2482.0;
 
@@ -76,27 +78,36 @@ $(function() {
     var scale_x = img_cw / imgw;
     var scale_y = img_ch / imgh;
 
-    var x1 = Math.round({{x1}} * scale_x);
-    var y1 = Math.round({{y1}} * scale_y);
-    var x2 = Math.round({{x2}} * scale_x);
-    var y2 = Math.round({{y2}} * scale_y);
-
     var highlight = $('#highlight');
-    highlight.css('top', '' + y1 + 'px');
-    highlight.css('left', '' + x1 + 'px');
-    highlight.css('width', '' + (x2-x1) + 'px');
-    highlight.css('height', '' + (y2-y1) + 'px');
-
     var overlay = $('#overlay');
-    overlay.css('top', '' + y2 + 'px');
-    overlay.css('margin-right', '25%');
+    var ocrtext = $('#ocrtext');
+    var usertext = $('#usertext');
+
+    function setbox(seg) {
+        var x1 = Math.round(seg.x1 * scale_x);
+        var y1 = Math.round(seg.y1 * scale_y);
+        var x2 = Math.round(seg.x2 * scale_x);
+        var y2 = Math.round(seg.y2 * scale_y);
+
+        highlight.css('top', '' + y1 + 'px');
+        highlight.css('left', '' + x1 + 'px');
+        highlight.css('width', '' + (x2-x1) + 'px');
+        highlight.css('height', '' + (y2-y1) + 'px');
+
+        overlay.css('top', '' + y2 + 'px');
+        overlay.css('margin-right', '25%');
+        console.log('Block: ' + x1 + ',' + y1 + ' - ' + x2 + ','+ y2 + 'px');
+        usertext.text(seg.text);
+        usertext.attr('rows', String(seg.textlines));
+        ocrtext.text(seg.ocrtext);
+
+        document.getElementById("usertext").focus();
+        window.scrollTo(0, y1-300);
+    }
+
+    setbox(segdata.shift());
     highlight.css('display', 'inline');
     overlay.css('display', 'inline');
-    //console.log('Block: ' + x1 + ',' + y1 + ' - ' + x2 + ','+ y2 + 'px');
-
-    var lastid = {{lastid}};
-    document.getElementById("usertext").focus();
-    window.scrollTo(0, y1-300);
 });
 </script>
 {% endblock %}
