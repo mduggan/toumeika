@@ -39,15 +39,21 @@ def review_submit(segmentid):
     if not ds:
         abort(404)
 
-    text = request.params.get('text')
-    if text is None:
+    text = request.args.get('text')
+    skip = request.args.get('skip')
+
+    if text is None and not skip:
         abort(404)
 
-    oldrev = request.params.get('oldrev')
+    oldrev = request.args.get('oldrev')
     timestamp = datetime.datetime.now()
 
-    # be sure we're inside a transaction for the next bit..
-    app.dbobj.session.begin()
+    if skip:
+        ds = DocSegment.query.filter(DocSegment.id == segmentid).first()
+        ds.viewcount += 1
+        app.dbobj.session.add()
+        app.dbobj.session.commit()
+        return
 
     if oldrev is not None:
         rev = 1

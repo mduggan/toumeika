@@ -50,8 +50,8 @@
               <label class="sr-only" for="usertext">Correct OCR text:</label>
               <textarea id="usertext" name="usertext" class="form-control" rows="2"></textarea>
               <button type="submit" class="btn btn-success" value="save" name="save" id="savebutton"><i class="fa fa-check"></i> Save</button>
-              <button type="input" class="btn btn-default" value="skip" name="skip"><i class="fa fa-forward"></i> Skip</button>
-              <button type="input" class="btn btn-warning" value="undo" name="undo"><i class="fa fa-undo"></i> Undo</button>
+              <button type="input" class="btn btn-default" value="skip" name="skip" id="skipbutton"><i class="fa fa-forward"></i> Skip</button>
+              <button type="input" class="btn btn-warning" value="undo" name="undo" id="undobutton"><i class="fa fa-undo"></i> Undo</button>
             </div>
           </form>
           </div>
@@ -83,21 +83,24 @@ $(function() {
     var ocrtext = $('#ocrtext');
     var usertext = $('#usertext');
 
+    var lastsegid = null;
+    var segno = -1;
+
     function setbox(seg) {
         var x1 = Math.round(seg.x1 * scale_x);
         var y1 = Math.round(seg.y1 * scale_y);
         var x2 = Math.round(seg.x2 * scale_x);
         var y2 = Math.round(seg.y2 * scale_y);
 
-        highlight.css('top', '' + y1 + 'px');
-        highlight.css('left', '' + x1 + 'px');
-        highlight.css('width', '' + (x2-x1) + 'px');
-        highlight.css('height', '' + (y2-y1) + 'px');
+        highlight.css('top', '' + y1-3 + 'px');
+        highlight.css('left', '' + x1-3 + 'px');
+        highlight.css('width', '' + (x2-x1+3) + 'px');
+        highlight.css('height', '' + (y2-y1+3) + 'px');
 
         overlay.css('top', '' + y2 + 'px');
         overlay.css('margin-right', '25%');
         console.log('Block: ' + x1 + ',' + y1 + ' - ' + x2 + ','+ y2 + 'px');
-        usertext.text(seg.text);
+        usertext.val(seg.text);
         usertext.attr('rows', String(seg.textlines));
         ocrtext.text(seg.ocrtext);
 
@@ -105,9 +108,44 @@ $(function() {
         window.scrollTo(0, y1-300);
     }
 
-    setbox(segdata.shift());
+    function nextsegment() {
+        if (segno >= 0) {
+            lastsegid = segdata[segno].segment_id;
+        }
+        if (segno < segdata.length-1) {
+            segno++;
+            setbox(segdata[segno]);
+        }
+        return segno <= segdata.length;
+    }
+
+    function checkfornextpage() {
+        return true;
+    }
+
+    nextsegment();
     highlight.css('display', 'inline');
     overlay.css('display', 'inline');
+
+    $('#undobutton').click(function(e) {
+        if (!lastsegid) {
+            return;
+        }
+        e.preventDefault()
+    });
+
+    $('#skipbutton').click(function(e) {
+        $.get('/api/review/' + segdata[segno].segment_id, {skip: true}).always(checkfornextpage());
+        nextsegment();
+        e.preventDefault()
+    });
+
+    $('#savebutton').click(function(e) {
+        $.get('/api/review/' + segdata[segno].segment_id, {text: usertext.val()}).done(checkfornextpage());
+        nextsegment();
+        e.preventDefault()
+    });
+
 });
 </script>
 {% endblock %}
