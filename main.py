@@ -7,7 +7,8 @@ Shikin, political donations database.
 from argparse import ArgumentParser
 
 import shikin
-from shikin.model import GroupType, DocType, PubType, User
+import os
+from shikin.model import GroupType, DocType, PubType, User, AppConfig
 
 
 def initdb_command(args):
@@ -46,7 +47,12 @@ def initdb_command(args):
 
     users = User.query.count()
     if users == 0:
-        db.session.add(User('admin'))
+        db.session.add(User(name='admin', pw_hash='*'))
+        db.session.commit()
+
+    configs = AppConfig.query.count()
+    if configs == 0:
+        db.session.add(AppConfig(key='secret_key', val=os.urandom(32)))
         db.session.commit()
 
     print('Seeded tables which need it.')

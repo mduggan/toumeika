@@ -2,13 +2,19 @@
 """Database model for political contributions documents"""
 
 import os
-from sqlalchemy import Column, ForeignKey, Integer, Text, Date, DateTime, UniqueConstraint, func
+from sqlalchemy import Column, ForeignKey, Integer, Text, Date, DateTime, BLOB, UniqueConstraint, func
 from sqlalchemy.orm import relationship, backref
 
 from . import util
 from . import app
 
 Model = app.dbobj.Model
+
+
+class AppConfig(Model):
+    id = Column('id', Integer(), primary_key=True)
+    key = Column('key', Text(), nullable=False, index=True, unique=True)
+    val = Column('val', BLOB(), nullable=False, unique=True)
 
 
 class GroupType(Model):
@@ -209,9 +215,7 @@ class User(Model):
     """A user who does reviews"""
     id = Column('id', Integer(), primary_key=True)
     name = Column('name', Text(), nullable=False, unique=True)
-
-    def __init__(self, name):
-        self.name = name
+    pw_hash = Column('pw_hash', Text(), nullable=False)
 
     def __repr__(self):
         return 'User<%d:%s>' % (self.id, self.name)

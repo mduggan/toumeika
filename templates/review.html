@@ -31,6 +31,27 @@
 {% block body %}
 <div class="container">
   <div class="row">
+    {% if not user %}
+    <div class="row">
+      <div class="col-md-6 col-md-offset-3">
+      <h2>Login to review documents</h2>
+      </div>
+    </div>
+    <div class="col-md-6 col-md-offset-3">
+    <form class="form" name="loginform" method="post">
+    {% if error %}<div class="error"><strong>Error:</strong> {{ error }}</div>{% endif %}
+        <div class="form-group {% if error == 'Invalid username' %}has-error{% endif %}">
+          <label for="username">Username:</label>
+          <input type="text" class="form-control" name="username" size="30" value="{{ request.form.username }}">
+        </div>
+        <div class="form-group {% if error == 'Invalid password' %}has-error{% endif %}">
+          <label for="password">Password:</label>
+          <input type="password" class="form-control" name="password" size="30">
+        </div>
+        <button type="submit" class="btn btn-default">Log In</button>
+      </form>
+    </div>
+    {% else %}
     <div id="pageimage">
       <div id="highlight"> </div>
       <div class="row">
@@ -55,6 +76,7 @@
       </div>
       </div>
     </div>
+    {% endif %}
   </div>
 
 </div>

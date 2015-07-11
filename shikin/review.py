@@ -3,9 +3,11 @@
 Shikin review page and associated API
 """
 
-from flask import render_template, abort, request, jsonify
+from flask import render_template, abort, request, jsonify, session
 from . import app, ocrfix
 from .model import DocSegment, DocSegmentReview, User
+
+from werkzeug import check_password_hash, generate_password_hash
 
 from sqlalchemy import func
 
@@ -14,11 +16,10 @@ import random
 
 
 def get_user_or_abort():
-    if request.remote_addr == '127.0.0.1':
-        user = 'admin'
-    else:
-        # TODO: users, logins, etc.
-        user = None
+    # if request.remote_addr == '127.0.0.1':
+    #     user = 'admin'
+    # else:
+    user = session.get('username')
     if not user:
         abort(403)
 
@@ -142,7 +143,25 @@ def reviewdata():
     return jsonify(dict(segments=segdata, docid=docid, page=page+1))
 
 
-@app.route('/review', methods=['GET'])
+@app.route('/review', methods=['GET', 'POST'])
 def review():
     """ Review page """
-    return render_template('review.html')
+    error = None
+    user = None
+    if request.method == 'POST':
+        user = User.query.filter(User.name == request.form['username']).first()
+        if user is None:
+            error = 'Invalid username'
+        elif not check_password_hash(user.pw_hash,
+                                     request.form['password']):
+            error = 'Invalid password'
+        else:
+            session['username'] = user.name
+
+    if 'username' in session:
+        u = get_user_or_abort()
+        uname = u.name
+    else:
+        uname = None
+
+    return render_template('review.html', user=uname, error=error)

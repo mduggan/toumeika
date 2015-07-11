@@ -4,9 +4,9 @@ Shikin views.
 """
 
 import os
-from flask import render_template, abort, request, redirect, url_for, json, g  # Flask, session, g, flash
+from flask import render_template, abort, request, redirect, url_for, json, g, session  # Flask, g, flash
 from . import app
-from .model import Document, Group, DocType, PubType
+from .model import Document, Group, DocType, PubType, User, AppConfig
 
 from sqlalchemy import func
 
@@ -21,6 +21,11 @@ def get_locale():
 @app.before_request
 def before_request():
     g.locale = get_locale()
+    if not app.secret_key:
+        c = AppConfig.query.filter(AppConfig.key == 'secret_key').first()
+        if not c:
+            abort(500)
+        app.secret_key = c.val
 
 
 def doctype_json():
