@@ -3,9 +3,6 @@
 {% block extrahead %}
 <style>
 #pageimage {
-  background: url(/doc/cached/{{doc_id}}/{{page}});
-  background-repeat: no-repeat;
-  background-size: 1170px;
   width: 1170px;
   height: 1500px;
   overflow: hidden;
@@ -64,88 +61,6 @@
 {% endblock %}
 
 {% block extrafooter%}
-<script type="text/javascript">
-$(function() {
-
-    var segdata = {{segdata|safe}};
-    var imgw = 3510.0;
-    var imgh = 2482.0;
-
-    var img = document.getElementById('pageimage');
-    var img_cw = img.clientWidth;
-    var img_ch = 827; //img.clientHeight;
-
-    var scale_x = img_cw / imgw;
-    var scale_y = img_ch / imgh;
-
-    var highlight = $('#highlight');
-    var overlay = $('#overlay');
-    var ocrtext = $('#ocrtext');
-    var usertext = $('#usertext');
-
-    var lastsegid = null;
-    var segno = -1;
-
-    function setbox(seg) {
-        var x1 = Math.round(seg.x1 * scale_x);
-        var y1 = Math.round(seg.y1 * scale_y);
-        var x2 = Math.round(seg.x2 * scale_x);
-        var y2 = Math.round(seg.y2 * scale_y);
-
-        highlight.css('top', '' + y1-3 + 'px');
-        highlight.css('left', '' + x1-3 + 'px');
-        highlight.css('width', '' + (x2-x1+3) + 'px');
-        highlight.css('height', '' + (y2-y1+3) + 'px');
-
-        overlay.css('top', '' + y2 + 'px');
-        overlay.css('margin-right', '25%');
-        console.log('Block: ' + x1 + ',' + y1 + ' - ' + x2 + ','+ y2 + 'px');
-        usertext.val(seg.text);
-        usertext.attr('rows', String(seg.textlines));
-        ocrtext.text(seg.ocrtext);
-
-        document.getElementById("usertext").focus();
-        window.scrollTo(0, y1-300);
-    }
-
-    function nextsegment() {
-        if (segno >= 0) {
-            lastsegid = segdata[segno].segment_id;
-        }
-        if (segno < segdata.length-1) {
-            segno++;
-            setbox(segdata[segno]);
-        }
-        return segno <= segdata.length;
-    }
-
-    function checkfornextpage() {
-        return true;
-    }
-
-    nextsegment();
-    highlight.css('display', 'inline');
-    overlay.css('display', 'inline');
-
-    $('#undobutton').click(function(e) {
-        if (!lastsegid) {
-            return;
-        }
-        e.preventDefault()
-    });
-
-    $('#skipbutton').click(function(e) {
-        $.get('/api/review/' + segdata[segno].segment_id, {skip: true}).always(checkfornextpage());
-        nextsegment();
-        e.preventDefault()
-    });
-
-    $('#savebutton').click(function(e) {
-        $.get('/api/review/' + segdata[segno].segment_id, {text: usertext.val()}).done(checkfornextpage());
-        nextsegment();
-        e.preventDefault()
-    });
-
-});
+<script type="text/javascript" src="/static/js/review.js">
 </script>
 {% endblock %}

@@ -11,7 +11,22 @@ from sqlalchemy import func
 
 import datetime
 import random
-import json
+
+
+def get_user_or_abort():
+    if request.remote_addr == '127.0.0.1':
+        user = 'admin'
+    else:
+        # TODO: users, logins, etc.
+        user = None
+    if not user:
+        abort(403)
+
+    u = User.query.filter(User.name == user).first()
+    if not u:
+        abort(403)
+
+    return u
 
 
 @app.route('/api/reviewcount/<user>')
@@ -22,18 +37,33 @@ def review_count(user):
     return jsonify({'user': user, 'count': len(u.reviews)})
 
 
+@app.route('/api/unreview/<int:segmentid>')
+def unreview(segmentid):
+    user = get_user_or_abort()
+
+    revid = request.args.get('revid')
+
+    ds = DocSegment.query.filter(DocSegment.id == segmentid).first()
+    if not ds:
+        abort(404)
+    ds.viewcount = max(0, ds.viewcount-1)
+    app.dbobj.session.add(ds)
+    if not revid or not revid.isdigit():
+        app.dbobj.session.commit()
+        return
+    revid = int(revid)
+    old = DocSegmentReview.query.filter(DocSegmentReview.id == revid, DocSegmentReview.user_id == user.id).first()
+    if not old:
+        abort(404)
+    app.dbobj.session.delete(old)
+    app.dbobj.session.commit()
+
+    return jsonify({'status': 'ok', 'id': revid})
+
+
 @app.route('/api/review/<int:segmentid>')
 def review_submit(segmentid):
-    user = None
-    if request.remote_addr == '127.0.0.1':
-        user = 'admin'
-    else:
-        # TODO: users, logins, etc.
-        abort(403)
-
-    u = User.query.filter(User.name == user).first()
-    if not u:
-        abort(404)
+    user = get_user_or_abort()
 
     ds = DocSegment.query.filter(DocSegment.id == segmentid).first()
     if not ds:
@@ -45,34 +75,32 @@ def review_submit(segmentid):
     if text is None and not skip:
         abort(404)
 
-    oldrev = request.args.get('oldrev')
     timestamp = datetime.datetime.now()
+    ds.viewcount += 1
+    app.dbobj.session.add(ds)
 
     if skip:
-        ds = DocSegment.query.filter(DocSegment.id == segmentid).first()
-        ds.viewcount += 1
-        app.dbobj.session.add()
         app.dbobj.session.commit()
-        return
+        return jsonify({'status': 'ok'})
 
-    if oldrev is not None:
-        rev = 1
-    else:
-        old = DocSegmentReview.query.filter(DocSegmentReview.segment_id == ds.id).first()
-        if not old:
-            abort(404)
+    old = DocSegmentReview.query\
+                          .filter(DocSegmentReview.segment_id == ds.id)\
+                          .order_by(DocSegmentReview.rev.desc())\
+                          .first()
+    if old is not None:
         rev = old.rev + 1
+    else:
+        rev = 1
 
-    newrev = DocSegmentReview(segment=ds, rev=rev, timestamp=timestamp, user=u, text=text)
+    newrev = DocSegmentReview(segment=ds, rev=rev, timestamp=timestamp, user=user, text=text)
     app.dbobj.session.add(newrev)
     app.dbobj.session.commit()
 
     return jsonify({'status': 'ok', 'id': newrev.id})
 
 
-@app.route('/review', methods=['GET'])
-def review():
-    """ Front page """
+@app.route('/api/reviewdata', methods=['GET'])
+def reviewdata():
     # Find a random early page with lots of unreviewed items.  This way even
     # with multiple simulteanous users they should get different pages.
     minviewcount = app.dbobj.session.query(func.min(DocSegment.viewcount)).one()[0]
@@ -84,7 +112,7 @@ def review():
 
     pages = list(q.all())
 
-    app.logger.debug("%d pages with segments of only %d views")
+    app.logger.debug("%d pages with segments of only %d views" % (len(pages), minviewcount))
 
     # FIXME: this kinda works, but as all the pages get reviewed it will tend
     # toward giving all users the same page.  not really a problem until I have
@@ -109,6 +137,12 @@ def review():
 
         segdata.append(dict(ocrtext=d.ocrtext, text=txt, segment_id=d.id,
                             x1=d.x1, x2=d.x2, y1=d.y1, y2=d.y2,
-                            textlines=lines))
+                            textlines=lines, docid=docid, page=page+1))
 
-    return render_template('review.html', doc_id=docid, page=page+1, segdata=json.dumps(segdata))
+    return jsonify(dict(segments=segdata, docid=docid, page=page+1))
+
+
+@app.route('/review', methods=['GET'])
+def review():
+    """ Review page """
+    return render_template('review.html')
