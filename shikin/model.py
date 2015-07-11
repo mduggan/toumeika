@@ -2,13 +2,19 @@
 """Database model for political contributions documents"""
 
 import os
-from sqlalchemy import Column, ForeignKey, Integer, Text, Date, UniqueConstraint, func
+from sqlalchemy import Column, ForeignKey, Integer, Text, Date, DateTime, BLOB, UniqueConstraint, func
 from sqlalchemy.orm import relationship, backref
 
 from . import util
 from . import app
 
 Model = app.dbobj.Model
+
+
+class AppConfig(Model):
+    id = Column('id', Integer(), primary_key=True)
+    key = Column('key', Text(), nullable=False, index=True, unique=True)
+    val = Column('val', BLOB(), nullable=False, unique=True)
 
 
 class GroupType(Model):
@@ -158,7 +164,7 @@ class DocTags(Model):
 
 
 class DocSegment(Model):
-    """Part of a document"""
+    """Part of a document split out by OCR"""
     id = Column('id', Integer(), primary_key=True)
     parent_id = Column('parent_id', Integer(), ForeignKey(id), nullable=True, index=True)
 
@@ -177,11 +183,21 @@ class DocSegment(Model):
     unique_segment = UniqueConstraint('doc_id', 'page', 'x1', 'x2', 'y1', 'y2')
 
     ocrtext = Column('ocrtext', Text(), nullable=True, index=True)
-    usertext = Column('usertext', Text(), nullable=True, index=True)
-    review = Column('review', Integer(), nullable=False, index=True, default=0)
+
+    # This is not the same as the number of reviews - this includes reviews
+    # where the user decided to skip the field.
+    viewcount = Column('viewcount', Integer(), nullable=False, index=True, default=0)
 
     doc = relationship(Document, uselist=False, backref='segments')
     children = relationship('DocSegment', backref=backref('parent', remote_side=[id]))
+
+    @property
+    def usertext(self):
+        q = app.dbobj.session\
+                     .query(DocSegmentReview)\
+                     .filter(DocSegmentReview.segment_id == self.id)\
+                     .order_by(DocSegmentReview.rev.desc())
+        return q.first()
 
     @property
     def besttext(self):
@@ -193,3 +209,32 @@ class DocSegment(Model):
 
     def __repr__(self):
         return 'DocSegment<%d:(%d,%d,%d,%d)>' % (self.doc_id, self.x1, self.y1, self.x2, self.y2)
+
+
+class User(Model):
+    """A user who does reviews"""
+    id = Column('id', Integer(), primary_key=True)
+    name = Column('name', Text(), nullable=False, unique=True)
+    pw_hash = Column('pw_hash', Text(), nullable=False)
+
+    def __repr__(self):
+        return 'User<%d:%s>' % (self.id, self.name)
+
+
+class DocSegmentReview(Model):
+    """A review of the text in a document segment"""
+    id = Column('id', Integer(), primary_key=True)
+    segment_id = Column('segment_id', Integer(), ForeignKey(DocSegment.id), nullable=False)
+    rev = Column('rev', Integer(), nullable=False, index=True)
+    timestamp = Column('timestamp', DateTime(), nullable=False)
+
+    user_id = Column('user_id', Integer(), ForeignKey(User.id), nullable=False)
+    text = Column('text', Text(), nullable=False)
+
+    unique_review = UniqueConstraint('segment_id', 'rev')
+
+    user = relationship(User, uselist=False, backref='reviews')
+    segment = relationship(DocSegment, uselist=False, backref='reviews')
+
+    def __repr__(self):
+        return 'DocSegmentReview<%d:seg %d:no %d>' % (self.id, self.segment_id, self.rev)

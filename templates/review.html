@@ -3,9 +3,6 @@
 {% block extrahead %}
 <style>
 #pageimage {
-  background: url(/doc/cached/{{doc_id}}/{{page}});
-  background-repeat: no-repeat;
-  background-size: 1170px;
   width: 1170px;
   height: 1500px;
   overflow: hidden;
@@ -34,69 +31,58 @@
 {% block body %}
 <div class="container">
   <div class="row">
+    {% if not user %}
+    <div class="row">
+      <div class="col-md-6 col-md-offset-3">
+      <h2>Login to review documents</h2>
+      </div>
+    </div>
+    <div class="col-md-6 col-md-offset-3">
+    <form class="form" name="loginform" method="post">
+    {% if error %}<div class="error"><strong>Error:</strong> {{ error }}</div>{% endif %}
+        <div class="form-group {% if error == 'Invalid username' %}has-error{% endif %}">
+          <label for="username">Username:</label>
+          <input type="text" class="form-control" name="username" size="30" value="{{ request.form.username }}">
+        </div>
+        <div class="form-group {% if error == 'Invalid password' %}has-error{% endif %}">
+          <label for="password">Password:</label>
+          <input type="password" class="form-control" name="password" size="30">
+        </div>
+        <button type="submit" class="btn btn-default">Log In</button>
+      </form>
+    </div>
+    {% else %}
     <div id="pageimage">
       <div id="highlight"> </div>
       <div class="row">
       <div id="overlay" class="col-md-6 col-md-offset-3">
           <div class="col-md-6">
           <p>OCR'd text:</p>
-          <pre>{{ocrtext}}</pre>
+          <pre id="ocrtext"></pre>
           </div>
           <div class="col-md-6">
           <p>Review text:</p>
           <form class="form" role="form" name="textform" method="post">
             <div class="form-group">
-              <input type="hidden" name="segment_id" value="{{segment_id}}">
+              <input type="hidden" name="segment_id" value="-1">
               <label class="sr-only" for="usertext">Correct OCR text:</label>
-              <textarea id="usertext" name="usertext" class="form-control" rows="{{textlines+1}}">{{text}}</textarea>
+              <textarea id="usertext" name="usertext" class="form-control" rows="2"></textarea>
               <button type="submit" class="btn btn-success" value="save" name="save" id="savebutton"><i class="fa fa-check"></i> Save</button>
-              <button type="input" class="btn btn-default" value="skip" name="skip"><i class="fa fa-forward"></i> Skip</button>
-              <button type="input" class="btn btn-warning" value="undo" name="undo"><i class="fa fa-undo"></i> Undo</button>
+              <button type="input" class="btn btn-default" value="skip" name="skip" id="skipbutton"><i class="fa fa-forward"></i> Skip</button>
+              <button type="input" class="btn btn-warning" value="undo" name="undo" id="undobutton"><i class="fa fa-undo"></i> Undo</button>
             </div>
           </form>
           </div>
       </div>
       </div>
     </div>
+    {% endif %}
   </div>
 
 </div>
 {% endblock %}
 
 {% block extrafooter%}
-<script type="text/javascript">
-$(function() {
-    var imgw = 3510.0;
-    var imgh = 2482.0;
-
-    var img = document.getElementById('pageimage');
-    var img_cw = img.clientWidth;
-    var img_ch = 827; //img.clientHeight;
-
-    var scale_x = img_cw / imgw;
-    var scale_y = img_ch / imgh;
-
-    var x1 = Math.round({{x1}} * scale_x);
-    var y1 = Math.round({{y1}} * scale_y);
-    var x2 = Math.round({{x2}} * scale_x);
-    var y2 = Math.round({{y2}} * scale_y);
-
-    var highlight = $('#highlight');
-    highlight.css('top', '' + y1 + 'px');
-    highlight.css('left', '' + x1 + 'px');
-    highlight.css('width', '' + (x2-x1) + 'px');
-    highlight.css('height', '' + (y2-y1) + 'px');
-
-    var overlay = $('#overlay');
-    overlay.css('top', '' + y2 + 'px');
-    overlay.css('margin-right', '25%');
-    highlight.css('display', 'inline');
-    overlay.css('display', 'inline');
-    //console.log('Block: ' + x1 + ',' + y1 + ' - ' + x2 + ','+ y2 + 'px');
-
-    var lastid = {{lastid}};
-    document.getElementById("usertext").focus();
-    window.scrollTo(0, y1-300);
-});
+<script type="text/javascript" src="/static/js/review.js">
 </script>
 {% endblock %}
