@@ -16,6 +16,13 @@ from .pdf import pdfimages
 manager = restless.APIManager(app, flask_sqlalchemy_db=app.dbobj)
 
 
+@app.after_request
+def add_no_cache(response):
+    if request.method == 'POST' or '/api/' in request.url:
+        response.cache_control.no_cache = True
+    return response
+
+
 def check_write_authorization(*args, **kw):
     """
     Check if a given request should be allowed to write to the DB
@@ -51,7 +58,7 @@ def _make_raw_api(table):
 
 def _make_ro_api(table):
     include_methods = None
-    if table in (Document, Group):
+    if table == Document:
         include_methods = ['size_str']
     manager.create_api(table, methods=['GET'], max_results_per_page=100,
                        results_per_page=100, include_methods=include_methods)
