@@ -10,6 +10,7 @@ from .model import DocSegment, DocSegmentReview, User
 from werkzeug import check_password_hash, generate_password_hash
 
 from sqlalchemy import func
+from collections import Counter
 
 import datetime
 import random
@@ -100,6 +101,31 @@ def review_submit(segmentid):
     return jsonify({'status': 'ok', 'id': newrev.id})
 
 
+def suggestions(seg, n=5):
+    """
+    Collect up to n OCR corrections which are for similar segments to the
+    given one.
+    """
+    q = DocSegmentReview.query.join(DocSegment)\
+                        .filter(DocSegmentReview.text != seg.ocrtext)\
+                        .filter(DocSegment.x1 >= seg.x1-50)\
+                        .filter(DocSegment.x2 <= seg.x2+50)\
+                        .filter(DocSegment.y1 >= seg.y1-50)\
+                        .filter(DocSegment.y2 <= seg.y2+50)\
+                        .order_by(DocSegmentReview.rev.desc())
+
+    similar = q.all()
+    texts = []
+    seen = set()
+    for s in similar:
+        if s.segment_id in seen:
+            continue
+        texts.append(s.text)
+        seen.add(s.segment_id)
+    c = Counter(texts)
+    return [x[0] for x in c.most_common(n)]
+
+
 @app.route('/api/reviewdata', methods=['GET'])
 def reviewdata():
     # Find a random early page with lots of unreviewed items.  This way even
@@ -131,14 +157,16 @@ def reviewdata():
     for d in segments:
         if d.usertext is None:
             txt = ocrfix.guess_fix(d.ocrtext)
+            suggests = suggestions(d)
         else:
             txt = d.usertext
+            suggests = []
 
         lines = max(len(d.ocrtext.splitlines()), len(txt.splitlines()))
 
         segdata.append(dict(ocrtext=d.ocrtext, text=txt, segment_id=d.id,
                             x1=d.x1, x2=d.x2, y1=d.y1, y2=d.y2,
-                            textlines=lines, docid=docid, page=page+1))
+                            textlines=lines, docid=docid, page=page+1, suggests=suggests))
 
     return jsonify(dict(segments=segdata, docid=docid, page=page+1))
 

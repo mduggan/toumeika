@@ -15,6 +15,7 @@ $(function() {
     var overlay = $('#overlay');
     var ocrtext = $('#ocrtext');
     var usertext = $('#usertext');
+    var suggestions = $('#suggestions');
 
     var lastrevid = null;
     var segno = -1;
@@ -36,6 +37,14 @@ $(function() {
         usertext.val(seg.text);
         usertext.attr('rows', String(seg.textlines));
         ocrtext.text(seg.ocrtext);
+
+        suggestions.empty();
+        seg.suggests.forEach(function(s){
+            var linktxt = (s.length ? s : "(blank)");
+            var n = $("<li><a>"+linktxt+"</a></li>");
+            n.click(function() { usertext.val(s); });
+            suggestions.append(n);
+        });
 
         document.getElementById("usertext").focus();
         window.scrollTo(0, y1-300);
