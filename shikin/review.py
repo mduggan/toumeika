@@ -158,7 +158,7 @@ def reviewdata():
             txt = ocrfix.guess_fix(d.ocrtext)
             suggests = suggestions(d)
         else:
-            txt = d.usertext
+            txt = d.usertext.text
             suggests = []
 
         lines = max(len(d.ocrtext.splitlines()), len(txt.splitlines()))
