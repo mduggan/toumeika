@@ -2,7 +2,8 @@
 """Database model for political contributions documents"""
 
 import os
-from sqlalchemy import Column, ForeignKey, Integer, Text, Date, DateTime, BLOB, UniqueConstraint, func
+from sqlalchemy import Column, ForeignKey, UniqueConstraint, func
+from sqlalchemy import Integer, Text, Date, DateTime, BLOB, Boolean
 from sqlalchemy.orm import relationship, backref
 
 from . import util
@@ -216,6 +217,8 @@ class User(Model):
     id = Column('id', Integer(), primary_key=True)
     name = Column('name', Text(), nullable=False, unique=True)
     pw_hash = Column('pw_hash', Text(), nullable=False)
+    email = Column('email', Text(), nullable=False)
+    is_admin = Column('is_admin', Boolean(), nullable=False, default=False)
 
     def __repr__(self):
         return 'User<%d:%s>' % (self.id, self.name)
