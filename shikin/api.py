@@ -4,10 +4,10 @@ Shikin, political donations database.
 """
 
 import os
-from flask import send_file, send_from_directory, request, jsonify, abort
+from flask import send_file, send_from_directory, request, jsonify, abort, session
 from flask.ext import restless
 from . import app
-from .model import Document, Group, GroupType, DocType, PubType, DocSet, DocSegment
+from .model import Document, Group, GroupType, DocType, PubType, DocSet, DocSegment, User
 from sqlalchemy.orm.properties import ColumnProperty
 
 from .pdf import pdfimages
@@ -27,8 +27,13 @@ def check_write_authorization(*args, **kw):
     """
     Check if a given request should be allowed to write to the DB
     """
+    u = None
+    user = session.get('username')
+    if user:
+        u = User.query.filter(User.name == user).first()
+
     # For now only allow local modifications
-    if request.remote_addr != '127.0.0.1':
+    if request.remote_addr != '127.0.0.1' and (u is None or not u.is_admin):
         raise restless.ProcessingException(description='Not Authorized',
                                            code=401)
 
