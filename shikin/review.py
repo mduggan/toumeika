@@ -6,8 +6,7 @@ Shikin review page and associated API
 from flask import render_template, abort, request, jsonify, session
 from . import app, ocrfix
 from .model import DocSegment, DocSegmentReview, User
-
-from werkzeug import check_password_hash, generate_password_hash
+from .util import dologin
 
 from sqlalchemy import func
 from collections import Counter
@@ -177,14 +176,7 @@ def review():
     error = None
     user = None
     if request.method == 'POST':
-        user = User.query.filter(User.name == request.form['username']).first()
-        if user is None:
-            error = 'Invalid username'
-        elif not check_password_hash(user.pw_hash,
-                                     request.form['password']):
-            error = 'Invalid password'
-        else:
-            session['username'] = user.name
+        user, error = dologin()
 
     if 'username' in session:
         u = get_user_or_abort()

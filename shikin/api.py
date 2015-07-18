@@ -11,6 +11,7 @@ from .model import Document, Group, GroupType, DocType, PubType, DocSet, DocSegm
 from sqlalchemy.orm.properties import ColumnProperty
 
 from .pdf import pdfimages
+from .util import dologin
 
 # Create the Flask-Restless API manager.
 manager = restless.APIManager(app, flask_sqlalchemy_db=app.dbobj)
@@ -101,3 +102,12 @@ def searchapi(query):
         return {'values': []}
     q = app.dbobj.session.query(Group.id, Group.name).filter(Group.name.like('%'+query+'%'))
     return jsonify({'values': [{'id': x[0], 'name': x[1]} for x in q.all()]})
+
+
+@app.route('/api/login', methods=['POST'])
+def loginapi():
+    user, error = dologin()
+    if user:
+        return jsonify({'status': 'ok', 'user': user.name})
+    else:
+        return jsonify({'status': 'error', 'msg': error})
