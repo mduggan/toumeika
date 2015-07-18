@@ -19,11 +19,7 @@ import shutil
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from shikin.pdf import pdfimages
 
-API_BASE = 'http://localhost:5000/api/'
-DOC_API = API_BASE + 'document/%d'
-SEGMENT_API = API_BASE + 'raw/doc_segment'
-
-DEBUG = True
+DEBUG = False
 
 # minimum run of adjacent pixels to call something a line
 H_THRESH = 0.6
@@ -422,6 +418,7 @@ def extract_pdf(filename, pageno):
 
 def main():
     from argparse import ArgumentParser
+    SITE_DEFAULT = 'localhost:5000'
 
     p = ArgumentParser(description="Script to OCR documents with tables inside.")
     p.add_argument("--verbose", "-v", action="store_true", help="be more verbose")
@@ -429,8 +426,16 @@ def main():
     p.add_argument('pdf', nargs='+', help='pdf filename or database doc id')
     p.add_argument("--page", "-p", type=int, help="single page number to run")
     p.add_argument("--force", "-f", action="store_true", help="continue even if segments already in db (identical ones will be ignored)")
+    p.add_argument("--site", "-s", default=SITE_DEFAULT, help="site for api urls (default=%s)" % SITE_DEFAULT)
+    p.add_argument("--username", "-u", help="username for API login (default=no login)")
+    p.add_argument("--password", "-P", help="password for API login")
 
     args = p.parse_args()
+
+    api_base = 'http://%s/api/' % args.site
+    doc_api = api_base + 'document/%d'
+    segment_api = api_base + 'raw/doc_segment'
+    login_api = api_base + 'login'
 
     global DEBUG
     DEBUG = args.debug
@@ -440,15 +445,26 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO)
 
+    s = requests.session()
+
+    if args.username:
+        result = s.post(login_api, data={'username': args.username,
+                                         'password': args.password})
+        if result:
+            j = result.json()
+            if j.get('status') != 'ok':
+                logging.error('Loging failed: %s' % str(j))
+                return
+
+    s.headers['Content-Type'] = 'application/json'
+
     for filename in args.pdf:
         # split target pdf into pages
         docid = None
         existing_segments = {}
-        s = requests.session()
-        s.headers['Content-Type'] = 'application/json'
         filename = sys.argv[1]
         if filename.isdigit():
-            docdata = s.get(DOC_API % int(filename)).json()
+            docdata = s.get(doc_api % int(filename)).json()
             if len(docdata['segments']):
                 if not args.force:
                     logging.error("Doc already has segments in DB.  Use --force to continue.")
@@ -476,11 +492,12 @@ def main():
                 obj = {'doc_id': docid, 'page': pageno, 'row': row, 'col': col,
                        'x1': loc.x1, 'y1': loc.y1, 'x2': loc.x2,
                        'y2': loc.y2, 'ocrtext': text}
-                result = s.post(SEGMENT_API, data=json.dumps(obj))
+                result = s.post(segment_api, data=json.dumps(obj))
                 try:
-                    j = result.json()
+                    result.json()
                 except ValueError:
-                    import pdb; pdb.set_trace()
+                    import pdb
+                    pdb.set_trace()
                     pass
 
 
