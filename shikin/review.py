@@ -3,16 +3,14 @@
 Shikin review page and associated API
 """
 
+from sqlalchemy import func
+import datetime
+import random
 from flask import render_template, abort, request, jsonify, session
+
 from . import app, ocrfix
 from .model import DocSegment, DocSegmentReview, User
 from .util import dologin
-
-from sqlalchemy import func
-from collections import Counter
-
-import datetime
-import random
 
 
 def get_user_or_abort():
@@ -98,31 +96,6 @@ def review_submit(segmentid):
     app.dbobj.session.commit()
 
     return jsonify({'status': 'ok', 'id': newrev.id})
-
-
-def suggestions(seg, n=5):
-    """
-    Collect up to n OCR corrections which are for similar segments to the
-    given one.
-    """
-    q = DocSegmentReview.query.join(DocSegment)\
-                        .filter(DocSegmentReview.text != seg.ocrtext)\
-                        .filter(DocSegment.x1 >= seg.x1-50)\
-                        .filter(DocSegment.x2 <= seg.x2+50)\
-                        .filter(DocSegment.y1 >= seg.y1-50)\
-                        .filter(DocSegment.y2 <= seg.y2+50)\
-                        .order_by(DocSegmentReview.rev.desc())
-
-    similar = q.all()
-    texts = []
-    seen = set()
-    for s in similar:
-        if s.segment_id in seen:
-            continue
-        texts.append(s.text)
-        seen.add(s.segment_id)
-    c = Counter(texts)
-    return [x[0] for x in c.most_common(n)]
 
 
 @app.route('/api/reviewdata', methods=['GET'])
