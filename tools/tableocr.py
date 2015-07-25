@@ -15,6 +15,7 @@ import json
 import logging
 import requests
 import shutil
+from requests.exceptions import ConnectionError
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from shikin.pdf import pdfimages
@@ -423,12 +424,12 @@ def main():
     p = ArgumentParser(description="Script to OCR documents with tables inside.")
     p.add_argument("--verbose", "-v", action="store_true", help="be more verbose")
     p.add_argument("--debug", "-d", action="store_true", help="dump debug images and ocr output")
-    p.add_argument('pdf', nargs='+', help='pdf filename or database doc id')
     p.add_argument("--page", "-p", type=int, help="single page number to run")
     p.add_argument("--force", "-f", action="store_true", help="continue even if segments already in db (identical ones will be ignored)")
     p.add_argument("--site", "-s", default=SITE_DEFAULT, help="site for api urls (default=%s)" % SITE_DEFAULT)
     p.add_argument("--username", "-u", help="username for API login (default=no login)")
     p.add_argument("--password", "-P", help="password for API login")
+    p.add_argument('pdf', nargs='+', help='pdf filename or database doc id')
 
     args = p.parse_args()
 
@@ -458,11 +459,11 @@ def main():
 
     s.headers['Content-Type'] = 'application/json'
 
+    logging.debug("pdfs are: %s" % args.pdf)
     for filename in args.pdf:
         # split target pdf into pages
         docid = None
         existing_segments = {}
-        filename = sys.argv[1]
         if filename.isdigit():
             docdata = s.get(doc_api % int(filename)).json()
             if len(docdata['segments']):
@@ -492,7 +493,16 @@ def main():
                 obj = {'doc_id': docid, 'page': pageno, 'row': row, 'col': col,
                        'x1': loc.x1, 'y1': loc.y1, 'x2': loc.x2,
                        'y2': loc.y2, 'ocrtext': text}
-                result = s.post(segment_api, data=json.dumps(obj))
+                try:
+                    result = s.post(segment_api, data=json.dumps(obj))
+                except ConnectionError:
+                    if args.username:
+                        # Maybe need to log in again.
+                        result = s.post(login_api, data={'username': args.username,
+                                                         'password': args.password})
+                        result = s.post(segment_api, data=json.dumps(obj))
+                    else:
+                        raise
                 try:
                     result.json()
                 except ValueError:
