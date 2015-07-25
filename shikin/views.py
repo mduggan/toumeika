@@ -4,13 +4,13 @@ Shikin views.
 """
 
 import os
-from flask import render_template, abort, request, redirect, url_for, json, g, session  # Flask, g, flash
-from . import app
-from .model import Document, Group, DocType, PubType, User, AppConfig
-
+from flask import render_template, abort, request, redirect, url_for, json, g, session
 from sqlalchemy import func
+from datetime import timedelta
 
-from config import LANGUAGES
+from . import app
+from .model import Document, Group, DocType, PubType, AppConfig
+from .config import LANGUAGES
 
 
 @app.babel.localeselector
@@ -26,6 +26,8 @@ def before_request():
         if not c:
             abort(500)
         app.secret_key = c.val
+    session.permanent = True
+    app.permanent_session_lifetime = timedelta(days=7)
 
 
 def doctype_json():
