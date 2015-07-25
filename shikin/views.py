@@ -26,7 +26,8 @@ def before_request():
         if not c:
             abort(500)
         app.secret_key = c.val
-    session.permanent = True
+    if bool(session) and app.secret_key:
+        session.permanent = True
     app.permanent_session_lifetime = timedelta(days=7)
 
 

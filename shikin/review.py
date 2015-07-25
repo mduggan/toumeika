@@ -129,7 +129,7 @@ def reviewdata():
     for d in segments:
         if d.usertext is None:
             txt = ocrfix.guess_fix(d.ocrtext)
-            suggests = suggestions(d)
+            suggests = ocrfix.suggestions(d)
         else:
             txt = d.usertext.text
             suggests = []
