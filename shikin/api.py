@@ -6,10 +6,10 @@ Shikin, political donations database.
 import os
 from flask import send_file, send_from_directory, request, jsonify, abort, session
 from flask.ext import restless
-from . import app
-from .model import Document, Group, GroupType, DocType, PubType, DocSet, DocSegment, User
 from sqlalchemy.orm.properties import ColumnProperty
 
+from . import app
+from .model import Document, Group, GroupType, DocType, PubType, DocSet, DocSegment, User
 from .pdf import pdfimages
 from .util import dologin
 
