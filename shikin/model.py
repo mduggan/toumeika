@@ -202,7 +202,10 @@ class DocSegment(Model):
 
     @property
     def besttext(self):
-        return (self.usertext or self.ocrtext or '')
+        if self.usertext:
+            return self.usertext.text
+        else:
+            return (self.ocrtext or '')
 
     @property
     def location(self):
