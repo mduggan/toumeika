@@ -2,7 +2,7 @@
 
 apt-get update
 apt-get upgrade -y
-apt-get install -y python-pip optipng imagemagick poppler-utils git
+apt-get install -y python-pip optipng imagemagick poppler-utils git sqlite3
 
 apt-get install -y apache2 libapache2-mod-wsgi
 
