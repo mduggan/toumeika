@@ -34,7 +34,7 @@ def check_write_authorization(*args, **kw):
         u = User.query.filter(User.name == user).first()
 
     # For now only allow local modifications
-    if request.remote_addr != '127.0.0.1' and (u is None or not u.is_admin):
+    if request.remote_addr not in ('127.0.0.1', '::1') and (u is None or not u.is_admin):
         raise restless.ProcessingException(description='Not Authorized',
                                            code=401)
 
