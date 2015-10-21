@@ -333,7 +333,9 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
     if DEBUG:
         region.save(pngfname + '-' + os.path.split(ftif)[1], "TIFF")
 
-    subprocess.call(cmd, stderr=subprocess.PIPE)
+    (stdout, stderr) = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()
+    if stderr:
+        logging.debug(stderr)
     lines = filter(lambda x: x, [l.strip() for l in open(ftxt).readlines()])
 
     if DEBUG:
@@ -343,20 +345,26 @@ def ocr_cell(im, cells, x, y, tmpdir, pngfname):
         logging.debug("Got nothing on noisy img: filter and run again")
         filtertif = ftif+'-filtered.tif'
         cmd2 = ["convert", ftif, "-morphology", "close", "square:1", filtertif]
-        subprocess.call(cmd2, stderr=subprocess.PIPE)
+        (stdout, stderr) = subprocess.Popen(cmd2, stderr=subprocess.PIPE).communicate()
+        if stderr:
+            logging.debug(stderr)
         ftif = filtertif
         cmd = ["tesseract", "-l", "jpn+eng", ftif, fbase]
         if DEBUG:
             shutil.copyfile(ftif, pngfname + '-' + os.path.split(ftif)[1])
-        subprocess.call(cmd, stderr=subprocess.PIPE)
+        (stdout, stderr) = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()
+        if stderr:
+            logging.debug(stderr)
         lines = filter(lambda x: x, [l.strip() for l in open(ftxt).readlines()])
         if DEBUG:
             shutil.copyfile(ftxt, pngfname + '-' + os.path.split(ftxt)[1] + '-filtered.txt')
 
     if not lines:
         logging.debug("Retrying with PSM 8")
-        cmd4 = ["tesseract", "-l", "jpn+eng", "-psm", "8", ftif, fbase]
-        subprocess.call(cmd4, stderr=subprocess.PIPE)
+        cmd = ["tesseract", "-l", "jpn+eng", "-psm", "8", ftif, fbase]
+        (stdout, stderr) = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()
+        if stderr:
+            logging.debug(stderr)
         if DEBUG:
             shutil.copyfile(ftxt, pngfname + '-' + os.path.split(ftxt)[1] + '-psm8.txt')
 
