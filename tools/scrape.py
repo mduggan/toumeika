@@ -281,9 +281,13 @@ def _page_with_children(session, url, title, ptype, base_url, data, repurls, enc
 
             # Horrible hack method to check title, works on some pages..
             grouptype_offset = data.rfind('<!--', 0, data.index(suburl)) + 5
-            grouptype_b = data[grouptype_offset:grouptype_offset+20].decode(encoding).split()[0]
+            grouptype_comment = data[grouptype_offset:grouptype_offset+20].decode(encoding)
+            grouptype_b = grouptype_comment.split()[0]
             if grouptype_b == u'議員別' and grouptype.startswith(u'国会議員関係政治団体'):
                 grouptype = grouptype_b
+            elif grouptype_b.startswith('<'):
+                # Nope, not what we were looking for.
+                grouptype_b = None
 
             if not (not grouptype_b or grouptype_b == u'タイトル終了' or grouptype_b == grouptype):
                 import pdb; pdb.set_trace()
