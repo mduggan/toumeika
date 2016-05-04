@@ -258,7 +258,7 @@ def _page_with_children(session, url, title, ptype, base_url, data, repurls, enc
         tb = tr.getparent()
         assert tb.tag == 'table'
 
-        if tb.attrib.get('id') == 'list-item':
+        if tb.attrib.get('id').startswith('list-item'):
             # embedded table..
             td = tb.getparent()
             assert td.tag == 'td'
@@ -274,7 +274,8 @@ def _page_with_children(session, url, title, ptype, base_url, data, repurls, enc
 
         colno = tr.xpath('./td').index(td)
 
-        assert colno < len(grouptypes) or _grouptype is not None
+        if not (colno < len(grouptypes) or _grouptype is not None):
+            import pdb; pdb.set_trace()
 
         if colno < len(grouptypes):
             grouptype = grouptypes[colno]
