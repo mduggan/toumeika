@@ -45,6 +45,11 @@ class Group(Model):
     def doccount(self):
         return len(self.docs)
 
+    # Slight hack to work around bug in Flask-Restless
+    @property
+    def size_str(self):
+        return ""
+
     @property
     def minyear(self):
         q = app.dbobj.session.query(func.min(Document.year)).filter(Document.group_id == self.id)
@@ -56,6 +61,15 @@ class Group(Model):
         q = app.dbobj.session.query(func.max(Document.year)).filter(Document.group_id == self.id)
         y = q.first()
         return y[0] if y else None
+
+    def stats(self):
+        r = {}
+        q = app.dbobj.session.query(Document.year, func.count(Document.id), func.sum(Document.size), func.sum(Document.pages))\
+                             .group_by(Document.year)\
+                             .order_by(Document.year)\
+                             .filter(Document.group_id == self.id)
+        r['byyear'] = [{'year': y, 'docs': c, 'bytes': b, 'pages': p} for y, c, b, p in q.all()]
+        return r
 
     def __repr__(self):
         return 'Group<%d:%s>' % (self.id, self.name)
@@ -132,6 +146,11 @@ class Document(Model):
     @property
     def path(self):
         return os.path.join(self.docset.path, self.filename)
+
+    # Slight hack to work around bug in Flask-Restless
+    @property
+    def stats(self):
+        return {}
 
     def __repr__(self):
         return 'Document<%d:%s>' % (self.id, self.filename)

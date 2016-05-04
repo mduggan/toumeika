@@ -64,8 +64,10 @@ def _make_raw_api(table):
 
 def _make_ro_api(table):
     include_methods = None
-    if table == Document or table == Group:
+    if table == Document:
         include_methods = ['size_str']
+    elif table == Group:
+        include_methods = ['docs.size_str', 'stats', 'size_str']
     manager.create_api(table, methods=['GET'], max_results_per_page=100,
                        results_per_page=100, include_methods=include_methods)
 

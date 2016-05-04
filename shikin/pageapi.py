@@ -2,7 +2,7 @@
 Pager API calls for use with DataTables on the frontend
 """
 
-from flask import request, jsonify
+from flask import request, jsonify, abort
 from . import app
 from .model import Group, Document, GroupType, DocSet  # , DocType, PubType
 
@@ -29,6 +29,17 @@ _group_order_funcs = {
     'doccount': _order_by_doccount,
 }
 
+
+@app.route('/api/summary/group/<int:groupid>/stats')
+def group_stats(groupid):
+    q = Group.query.filter(Group.id == groupid)
+    g = q.first()
+    if g is None:
+        abort(404)
+
+    result = g.stats()
+
+    return jsonify(result)
 
 @app.route('/api/summary/group/<int:parentid>/children')
 @app.route('/api/summary/group')
