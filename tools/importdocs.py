@@ -260,6 +260,10 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
             gtype = u'政党支部'
         if gtype == u'総括文書（支部分）':
             gtype = u'政党支部'
+        if gtype == u'資金管理団体（国会議員関係政治団体を除く。）':
+            gtype = u'資金管理団体'
+        if gtype == u'国会議員関係政治団体（政党の支部を除く。）':
+            gtype = u'国会議員関係政治団体'
         if gtype == u'政党':
             # This could be honbu or shibu
             gtype = None
