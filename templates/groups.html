@@ -9,6 +9,6 @@
 <script type="text/javascript">
 var doctypes = ({{doctypes|safe}});
 var pubtypes = ({{pubtypes|safe}});
-{{ grouptable.script("/api/summary/group") }}
+{{ grouptable.script("/api/summary/group", q) }}
 </script>
 {% endblock %}

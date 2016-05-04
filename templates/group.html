@@ -7,6 +7,14 @@
     <p class="text-muted">{{grouptype}}</p>
   </div>
   <div class="row">
+    <h3>{{_('Activity')}}</h3>
+    <div class="chartdiv">
+      <svg style="height:240px" class="chart">
+      </svg>
+    </div>
+  </div>
+  <div class="row">
+    <h3>{{_('Document List')}}</h3>
      <table class="table table-hover table-striped" id="groupdocs" width="100%">
       <thead>
             <tr>
@@ -25,7 +33,7 @@
 
 {% if children %}
 {% autoescape false %}
-{{ grouptable.table('<h2><i class="fa fa-sitemap"></i> ' + _('Associated Groups') + '</h2>') }}
+{{ grouptable.table('<h3><i class="fa fa-sitemap"></i> ' + _('Associated Groups') + '</h3>') }}
 {% endautoescape %}
 {% endif %}
 
@@ -54,10 +62,48 @@ $(function() {
         { "data": "note" },
     ]
   });
+  d3.json('/api/summary/group/{{groupid}}/stats', function(data) {
+    var byyear = data.byyear;
+    var years = _.map(byyear, 'year');
+    var pages = _.map(byyear, 'pages');
+    var docs = _.map(byyear, 'docs');
+    var bytes = _.map(byyear, 'bytes');
+
+    var maxpages = _.max(pages);
+    maxpages = Math.round((maxpages + 99) / 100) * 100;
+
+    var pages = _.zip(years, pages);
+    var docs = _.zip(years, docs);
+
+    nv.addGraph(function() {
+      var chart = nv.models.lineChart()
+                    .margin({top: 30, right: 60, bottom: 50, left: 70})
+                    .useInteractiveGuideline(true)
+                    .showLegend(true)
+                    .showYAxis(true)
+                    .showXAxis(true)
+                    .x(function(d,i) { return d[0] })
+                    .y(function(d,i) { return d[1] })
+                    .forceY([0, maxpages]);
+
+      chart.xAxis.axisLabel('Year')
+
+      d3.select('svg')
+        .datum([{'key': 'Pages Filed', 'values': pages}, {'key': 'Documents Filed', 'values': docs}])
+        .transition()
+        .duration(0)
+        .call(chart);
+
+      nv.utils.windowResize(chart.update);
+
+      return chart;
+    });
+  });
+
 });
 
 // This can be safely included whether or not we have any children.
-{{ grouptable.script("/api/summary/group/%d/children" % groupid) }}
+{{ grouptable.script("/api/summary/group/%d/children" % groupid, q) }}
 
 </script>
 {% endblock %}

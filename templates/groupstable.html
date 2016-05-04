@@ -17,7 +17,7 @@
    </div>
 </div>
 {%- endmacro %}
-{% macro script(url) %}
+{% macro script(url, q) %}
 $(function() {
   tbl = $('#groups').DataTable({
     "language": { "url": "/static/dt_lang/{{g.locale}}.json" },
