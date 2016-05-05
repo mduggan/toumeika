@@ -28,6 +28,8 @@ def initdb_command(args):
         db.session.add(GroupType(u'その他の政治団体'))
         # An "unknown" type we can use when not sure
         db.session.add(GroupType(u'不明'))
+    if groups < 8:
+        db.session.add(GroupType(u'国会議員関係政治団体'))
         db.session.commit()
 
     doctypes = DocType.query.count()
@@ -47,7 +49,7 @@ def initdb_command(args):
 
     users = User.query.count()
     if users == 0:
-        db.session.add(User(name='admin', pw_hash='*'))
+        db.session.add(User(name='admin', pw_hash='*', email='admin@toumeika.jp'))
         db.session.commit()
 
     configs = AppConfig.query.count()
