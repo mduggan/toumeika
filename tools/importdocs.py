@@ -245,6 +245,10 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
             gname = notepart[0]
             note = notepart[1]
 
+        if note:
+            note = note.strip()
+        gname = gname.strip()
+
         if 'grouptype' not in meta and gname not in _group_cache:
             if nodefer:
                 logging.info(u"Recording %s as unknown." % (gname,))
