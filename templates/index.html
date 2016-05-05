@@ -3,7 +3,7 @@
     <div class="jumbotron">
       <div class="container">
         <h1>{{_('Political Funds <i>Toumeika</i>')}}</h1>
-        <p>{{_('An unofficial search engine for political funding declarations (<a href="http://www.soumu.go.jp/senkyo/seiji_s/seijishikin/">政治資金収支報告書</a>) from Japan\'s Ministry of Internal Affairs and Communications')}}</p>
+        <p>{{_('An unofficial index of political funding declarations (<a href="http://www.soumu.go.jp/senkyo/seiji_s/seijishikin/">政治資金収支報告書</a>) from Japan\'s Ministry of Internal Affairs and Communications')}}</p>
       <div class="row">
       <div class="col-md-6 col-md-offset-3">
         <form class="form-inline form-group-lg {% if nomatch %}has-warning{% endif %}" role="form" aria-describedby="search-status" name="searchform">
@@ -13,7 +13,7 @@
           </div>
         </form>
       </div>
-      <div>{% if nomatch %}<span>{{_('No documents match %(nomatch)s.', nomatch=nomatch)}}.</span>{% endif %}</div>
+      <div>{% if nomatch %}<span>{{_('No documents match %(nomatch)s.', nomatch=nomatch)}}</span>{% endif %}</div>
       </div>
       </div>
     </div>
@@ -55,6 +55,7 @@ $(function() {
     items: 5,
     autoSelect: false,
     source: function (query, process) {
+        query = query.trim();
         return $.get("/api/search/" + query, function (data) {
             return process(data.values);
         }, 'json');
