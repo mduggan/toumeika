@@ -45,7 +45,8 @@ def index():
     if request.args.get('q'):
         return search(request.args['q'])
     else:
-        return render_template('index.html')
+        doccount = app.dbobj.session.query(func.count(Document.id), func.sum(Document.pages)).one()
+        return render_template('index.html', doccount=doccount[0], pagecount=doccount[1])
 
 
 @app.route('/about')
@@ -124,8 +125,12 @@ def group(groupid):
         abort(404)
 
     doccount = Document.query.filter(Document.group_id == groupid).count()
+    parentname = None
+    if group.parent:
+        parentname = group.parent.name
 
     return render_template('group.html', groupname=group.name,
                            grouptype=group.type.name, groupid=groupid,
                            doccount=doccount, doctypes=doctype_json(),
+                           parentid=group.parent_id, parentname=parentname,
                            pubtypes=pubtype_json(), children=len(group.children))

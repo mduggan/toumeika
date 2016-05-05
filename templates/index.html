@@ -19,7 +19,16 @@
     </div>
 
     <div class="container">
-      <h2>{{_('Or start browsing by...')}}</h2>
+        <h2>{{_('Declaration Trend')}}</h2>
+      <div class="row">
+        <svg id=chart>
+        </svg>
+        <p class="text-muted">{{_('%(doccount)s documents indexed', doccount=doccount)}}</p>
+      </div>
+    </div>
+
+    <div class="container">
+      <h2>{{_('Start browsing documents by...')}}</h2>
       <div class="row">
         <div class="col-md-4">
           <h3><i class="fa fa-users"></i> {{_('Groups')}}</h3>
@@ -71,6 +80,42 @@ $(function() {
     // More hacks to work nicely with IME..
     $('#searchbox').typeahead("lookup");
   });
+
+  d3.json('/api/summary/stats', function(data) {
+    var byyear = data.years;
+    var years = _.map(byyear, 'year');
+    var docs = _.map(byyear, 'docs');
+    var groups = _.map(byyear, 'groups');
+
+    var docs = _.zip(years, docs);
+    var groups = _.zip(years, groups);
+
+    nv.addGraph(function() {
+      var chart = nv.models.lineChart()
+                    .margin({top: 30, right: 60, bottom: 50, left: 70})
+                    .useInteractiveGuideline(true)
+                    .showLegend(true)
+                    .x(function(d,i) { return d[0] })
+                    .y(function(d,i) { return d[1] })
+                    .showYAxis(true)
+                    .showXAxis(true)
+                    .forceY([0, 5000]);
+
+      chart.xAxis.axisLabel('Year')
+
+      d3.select('svg')
+        .datum([{'key': 'Active Groups', 'values': groups}, {'key': 'Documents Indexed', 'values': docs}])
+        .transition()
+        .duration(0)
+        .call(chart);
+
+      nv.utils.windowResize(chart.update);
+
+      return chart;
+    });
+  });
+
+
 });
 </script>
 {% endblock %}

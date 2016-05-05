@@ -30,16 +30,26 @@ _group_order_funcs = {
 }
 
 
+@app.route('/api/summary/stats')
+def all_stats():
+    q = Document.query.filter(Document.year > 2008)\
+                .group_by(Document.year)\
+                .order_by(Document.year)\
+                .add_columns(Document.year, func.count(Document.id), func.count(Document.group_id.distinct()),
+                             func.sum(Document.pages), func.sum(Document.size))
+    data = q.all()
+    data = [{'year': x[1], 'docs': x[2], 'groups': x[3], 'pages': x[4], 'bytes': x[5]} for x in data]
+    return jsonify({'years': data})
+
+
 @app.route('/api/summary/group/<int:groupid>/stats')
 def group_stats(groupid):
     q = Group.query.filter(Group.id == groupid)
     g = q.first()
     if g is None:
         abort(404)
+    return jsonify(g.stats())
 
-    result = g.stats()
-
-    return jsonify(result)
 
 @app.route('/api/summary/group/<int:parentid>/children')
 @app.route('/api/summary/group')

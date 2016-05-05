@@ -3,13 +3,13 @@
 {% block body %}
 <div class="container">
   <div class="page-header">
-    <h2><i class="fa fa-users"></i> {{groupname}}</h2>
+    <h2><i class="fa fa-users"></i> {% if parentname %}<a href="/group/{{parentid}}">{{parentname}}</a> <i class="fa fa-angle-right"></i> {%endif%}{{groupname}}</h2>
     <p class="text-muted">{{grouptype}}</p>
   </div>
   <div class="row">
     <h3>{{_('Activity')}}</h3>
     <div class="chartdiv">
-      <svg style="height:240px" class="chart">
+      <svg style="height:240px" id="groupchart">
       </svg>
     </div>
   </div>
@@ -32,6 +32,15 @@
 </div>
 
 {% if children %}
+<div class="container">
+  <div class="row">
+    <h3>{{_('Associated Group Activity')}}</h3>
+    <div class="chartdiv">
+      <svg style="height:240px" id="childchart">
+      </svg>
+    </div>
+  </div>
+</div>
 {% autoescape false %}
 {{ grouptable.table('<h3><i class="fa fa-sitemap"></i> ' + _('Associated Groups') + '</h3>') }}
 {% endautoescape %}
@@ -43,6 +52,19 @@
 $(function() {
   var doctypes = ({{doctypes|safe}});
   var pubtypes = ({{pubtypes|safe}});
+
+  var roundpages = function(v) {
+    if (v < 50) {
+        v = Math.floor((v + 9) / 10) * 10;
+    } else if (v < 5000) {
+        v = Math.floor((v + 99) / 100) * 100;
+    } else {
+        v = Math.floor((v + 999) / 1000) * 1000;
+    }
+    return v;
+  }
+
+
   tbl = $('#groupdocs').DataTable({
     "language": { "url": "/static/dt_lang/{{g.locale}}.json" },
     "processing": true,
@@ -68,12 +90,18 @@ $(function() {
     var pages = _.map(byyear, 'pages');
     var docs = _.map(byyear, 'docs');
     var bytes = _.map(byyear, 'bytes');
+    var childdocs = _.map(byyear, 'child_docs');
+    var childpages = _.map(byyear, 'child_pages');
+    var childgroups = _.map(byyear, 'child_groups');
 
-    var maxpages = _.max(pages);
-    maxpages = Math.round((maxpages + 99) / 100) * 100;
+    var maxpages = roundpages(_.max(pages));
+    var maxchildpages = roundpages(_.max(childpages));
 
-    var pages = _.zip(years, pages);
-    var docs = _.zip(years, docs);
+    pages = _.zip(years, pages);
+    docs = _.zip(years, docs);
+    childdocs = _.zip(years, childdocs);
+    childpages = _.zip(years, childpages);
+    childgroups = _.zip(years, childgroups);
 
     nv.addGraph(function() {
       var chart = nv.models.lineChart()
@@ -88,7 +116,7 @@ $(function() {
 
       chart.xAxis.axisLabel('Year')
 
-      d3.select('svg')
+      d3.select('#groupchart')
         .datum([{'key': 'Pages Filed', 'values': pages}, {'key': 'Documents Filed', 'values': docs}])
         .transition()
         .duration(0)
@@ -98,6 +126,31 @@ $(function() {
 
       return chart;
     });
+
+    nv.addGraph(function() {
+      var chart = nv.models.lineChart()
+                    .margin({top: 30, right: 60, bottom: 50, left: 70})
+                    .useInteractiveGuideline(true)
+                    .showLegend(true)
+                    .showYAxis(true)
+                    .showXAxis(true)
+                    .x(function(d,i) { return d[0] })
+                    .y(function(d,i) { return d[1] })
+                    .forceY([0, maxchildpages]);
+
+      chart.xAxis.axisLabel('Year')
+
+      d3.select('#childchart')
+        .datum([{'key': 'Pages Filed', 'values': childpages}, {'key': 'Documents Filed', 'values': childdocs}, {'key': 'Active Groups', 'values': childgroups}])
+        .transition()
+        .duration(0)
+        .call(chart);
+
+      nv.utils.windowResize(chart.update);
+
+      return chart;
+    });
+
   });
 
 });

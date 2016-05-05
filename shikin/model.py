@@ -63,13 +63,29 @@ class Group(Model):
         return y[0] if y else None
 
     def stats(self):
-        r = {}
         q = app.dbobj.session.query(Document.year, func.count(Document.id), func.sum(Document.size), func.sum(Document.pages))\
                              .group_by(Document.year)\
                              .order_by(Document.year)\
                              .filter(Document.group_id == self.id)
-        r['byyear'] = [{'year': y, 'docs': c, 'bytes': b, 'pages': p} for y, c, b, p in q.all()]
-        return r
+        by_year = {y: {'year': y, 'docs': d, 'bytes': b, 'pages': p} for y, d, b, p in q.all()}
+        # Docs for sub-groups
+        child_ids = [x.id for x in self.children]
+        q = app.dbobj.session.query(Document.year, func.count(Document.id), func.sum(Document.size),
+                                    func.sum(Document.pages), func.count(Document.group_id.distinct()))\
+                             .group_by(Document.year)\
+                             .order_by(Document.year)\
+                             .filter(Document.group_id.in_(child_ids))
+        for y, d, b, p, g in q.all():
+            if y not in by_year:
+                by_year[y] = {'year': y}
+            by_year[y]['child_groups'] = g
+            by_year[y]['child_docs'] = d
+            by_year[y]['child_bytes'] = b
+            by_year[y]['child_pages'] = p
+
+        by_year = by_year.values()
+        by_year.sort(key=lambda x: x['year'])
+        return {'byyear': by_year}
 
     def __repr__(self):
         return 'Group<%d:%s>' % (self.id, self.name)
