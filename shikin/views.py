@@ -84,6 +84,7 @@ def search(q):
     g = Group.query.filter(Group.name == q).first()
     if g is not None:
         return _group_redir(g.id)
+    q = q.strip()
     g_query = Group.query.filter(Group.name.like('%' + q + '%'))
     g_count = g_query.count()
     if g_count == 1:

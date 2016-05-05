@@ -102,6 +102,7 @@ def docpdf(docid, pageno=None):
 def searchapi(query):
     if not query:
         return {'values': []}
+    query = query.strip()
     q = app.dbobj.session.query(Group.id, Group.name).filter(Group.name.like('%'+query+'%'))
     return jsonify({'values': [{'id': x[0], 'name': x[1]} for x in q.all()]})
 
