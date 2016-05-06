@@ -4,12 +4,14 @@ import os
 import glob
 import logging
 import shlex
+import re
 import subprocess
 from tmpdir import TemporaryDirectory
-from .util import get_rot, optimise_png, rotate_png
+
+rot_re = re.compile("Page rot:       (\d+)")
 
 
-def extract_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=1, lastpage=1):
+def pdf_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=1, lastpage=1):
     """
     Extract images from the given pdf using pdfimages.  Optionally
     automatically flip and rotate the images as they come out.  Yields a series
@@ -19,16 +21,24 @@ def extract_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=1, la
     directory and its contents will be deleted once the function completes.
     """
     if autorotate:
-        rot = get_rot(pdf_fullpath)
+        # First decide if the pages are upside-down
+        p = subprocess.Popen(['pdfinfo', pdf_fullpath], stdout=subprocess.PIPE)
+        (stdoutdata, stderrdata) = p.communicate()
+
+        rot = rot_re.search(stdoutdata)
+        if not rot:
+            logging.warn("Didn't get rot info for %s" % pdf_fullpath)
+            rot = 0
+        else:
+            rot = int(rot.groups()[0])
     else:
         rot = 0
 
     with TemporaryDirectory() as tmpdirname:
         outfile_prefix = os.path.join(tmpdirname, 'thumb')
         lastpagestr = '-l %d' % lastpage if lastpage else ''
-        command = 'pdfimages -p -f %d %s -png "%s" "%s"' % (firstpage, lastpagestr, pdf_fullpath, outfile_prefix)
+        command = 'pdfimages -p -f %d %s -png %s %s' % (firstpage, lastpagestr, pdf_fullpath, outfile_prefix)
         split = shlex.split(command)
-        import pdb; pdb.set_trace()
         subprocess.call(split)
         outpattern = outfile_prefix + '-%03d-*.png'
 
@@ -38,25 +48,19 @@ def extract_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=1, la
             outfiles = glob.glob(outpattern % pageno)
             outfile = max(outfiles, key=lambda x: os.stat(x).st_size)
             logging.debug(" .. biggest is %s" % outfile)
-            outfile = rotate_png(outfile, rot)
+            if rot:
+                logging.debug("unflipping %s" % (outfile,))
+                outfile_flip = outfile + '-flip.png'
+                cmd = ['convert', outfile, '-rotate', str(rot), outfile_flip]
+                subprocess.call(cmd)
+                if not os.path.exists(outfile_flip):
+                    logging.warn("%s didn't get made :(" % outfile_flip)
+                else:
+                    outfile = outfile_flip
 
             if optimise:
-                outfile = optimise_png(outfile)
+                logging.debug("Optimising %s" % (outfile,))
+                subprocess.call(['optipng', '-q', outfile])
 
             yield outfile
             pageno += 1
-
-
-def render_page(pdf_fullpath, pageno, dest, autorotate=True):
-    # TODO: autorotate?
-    try:
-        command = 'convert "%s"[%d] "%s"' % (pdf_fullpath, pageno - 1, dest)
-        split = shlex.split(command)
-        subprocess.call(split)
-    except Exception, e:
-        logging.error('Conversion error: %s' % str(e))
-        try:
-            # Remove the output on any error
-            os.unlink(dest)
-        except:
-            pass

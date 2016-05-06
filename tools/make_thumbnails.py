@@ -26,9 +26,15 @@ def check_pdf(pdfdir, pdffile, pdf_root, thumbnail_root, force_regen, optimise):
 
     pdf_fullpath = os.path.join(pdfdir, pdffile)
 
-    for pngpath in pdfimages.pdf_images(pdf_fullpath, firstpage=1, lastpage=1):
-        logging.debug("%s -> %s" % (pngpath, thumbnailpath))
-        os.rename(pngpath, thumbnailpath)
+    if 'main_content' in pdf_fullpath:
+        # these have text content that needs rendering
+        logging.debug("%s -> %s (render)" % (pdf_fullpath, thumbnailpath))
+        pdfimages.render_page(pdf_fullpath, 1, thumbnailpath)
+    else:
+        # these are just images in a file
+        for pngpath in pdfimages.extract_images(pdf_fullpath, firstpage=1, lastpage=1):
+            logging.debug("%s -> %s" % (pngpath, thumbnailpath))
+            os.rename(pngpath, thumbnailpath)
 
 
 def main():
