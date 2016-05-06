@@ -5,6 +5,8 @@
 db/*.db
 cache/*
 pdf/contents
+pdf/main_content
 static/thumbnails/contents
+static/thumbnails/main_content
 messages.pot
 **/messages.mo
