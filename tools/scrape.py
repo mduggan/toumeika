@@ -7,6 +7,7 @@ import os
 import md5
 import re
 import urlparse
+import datetime
 from cStringIO import StringIO
 from lxml import etree
 
@@ -21,6 +22,7 @@ _seen = set()
 _downloaded = 0
 
 NENBUN = re.compile(u'((平成|昭和)\d+)年分')
+NEN = re.compile(u'((平成|昭和)\d+)年')
 
 # Hacky globals so i can reprocess metadata
 _nowrite = False
@@ -116,14 +118,19 @@ def cache_page(session, url, srcurl):
     return open(path).read()
 
 
-def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, grouptype, year, docsettype):
-    """ Get a PDF with caching """
+def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, grouptype, year, docsettype, more_meta=None):
+    """
+    Get a PDF with caching.
+    more_meta is an optional list of additional metadata k,v pairs
+    """
     url = normalise(url, srcurl)
     if url in _seen:
         logging.warn("ALREADY SEEN PDF %s" % url)
         return
 
     pdf_cache_file = url[len(site_base_url):]
+    if pdf_cache_file.startswith('/'):
+        pdf_cache_file = pdf_cache_file[1:]
     pdf_cache_file = os.path.join(pdf_cache_dir, pdf_cache_file)
     pdf_dir = os.path.dirname(pdf_cache_file)
     if not os.path.isdir(pdf_dir):
@@ -152,6 +159,11 @@ def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, group
         meta.write('grouptype,%s\n' % grouptype.encode('utf-8') if grouptype else '')
         meta.write('docsettype,%s\n' % docsettype.encode('utf-8'))
         meta.write('year,%s\n' % year.encode('utf-8'))
+        meta.write('fetched,%s\n' % str(datetime.datetime.now()))
+        if more_meta is not None:
+            for k, v in more_meta:
+                meta.write('%s,%s\n' % (k, v.encode('utf-8')))
+
         meta.close()
     except:
         if meta:
@@ -172,10 +184,25 @@ def report_url_filter(baseurl):
     return filterfn
 
 
-def get_nenbun(text):
+def summary_url_filter(baseurl):
+    def filterfn(s):
+        return '?' not in s[0] and (
+            ('/kanpo/' in s[0] or
+             ('/kanpo/' in baseurl and '/' not in s[0] and s[0].endswith('html')))
+            or
+            ('/main_content/' in s[0] or
+             ('/main_content/' in baseurl and '/' not in s[0] and s[0].endswith('pdf')))
+        )
+    return filterfn
+
+
+def get_nenbun(text, weak=False):
     year = NENBUN.search(text)
+    if weak and year is None:
+        year = NEN.search(text)
     if year is not None:
         year = year.groups()[0]
+
     return year
 
 
@@ -327,11 +354,79 @@ def teiki(session, url, title, base_url):
     page_auto(session, url, base_url, 'teiki', title, base_url)
 
 
+def kanpo(session, url, title, base_url):
+    """ 官報 data - page of pdf links with hash-parts and a different format"""
+    logging.debug('%s: %s, %s' % ('kanpo', title, url))
+    data = cache_page(session, url, base_url)
+    if data is None:
+        return
+    urls, encoding, pagetitle = parse_page(data)
+    urls = filter(summary_url_filter(url), urls)
+
+    linkdata = {}
+
+    for href, text, node in urls:
+        if '#' in href:
+            href, hashpart = href.split('#')
+            assert hashpart.startswith('page=')
+            pageno = int(hashpart[5:])
+        else:
+            pageno = 1
+        link = u'%s\t%d' % (text, pageno)
+        if href in linkdata:
+            linkdata[href].append(('page', link))
+        else:
+            linkdata[href] = [('page', link)]
+
+    ptype = 'kanpo'
+    srctitle = u'政治資金収支報告書の要旨'
+    grouptype = None
+    year = get_nenbun(title)
+    docsettype = u'官報'
+
+    for href, links in linkdata.iteritems():
+        cache_pdf(session, href, base_url, SITE, ptype, title, srctitle, grouptype, year, docsettype, more_meta=links)
+
+
+def summary_pdf_downloader(session, href, text, base_url, node):
+    """
+    the summary page has a few different pdfs linked directly from it:
+    総務大臣届出分 - a breakdown of all the numbers
+    総務大臣届出分＋都道府県選管届出分 - breakdown of numbers including regional (summary only)
+    政治資金規正法に基づく届出 - notices of group formation/dissolution etc
+    """
+    assert href.endswith('.pdf')
+    dd = node.getparent()
+    assert dd.tag == 'dd'
+    dl = dd.getparent()
+    assert dl.tag == 'dl'
+    head = dl.getprevious()
+    assert head.tag == 'h5'
+    while dd is not None and dd.tag == 'dd':
+        dd = dd.getprevious()
+    if dd is not None and dd.tag == 'dt':
+        assert head.text.startswith(u'政治資金収支報告の概要')
+        docsettype = u'政治資金収支報告の概要'
+        srctitle = dd.text[1:-1]
+    else:
+        assert head.text.startswith(u'政治資金規正法に基づく届出')
+        srctitle = u'政治資金規正法に基づく届出'
+
+    docsettype = u'報道資料'
+    title = text
+    ptype = 'summary'
+    grouptype = None
+    year = get_nenbun(text, weak=True)
+
+    cache_pdf(session, href, base_url, SITE, ptype, title, srctitle, grouptype, year, docsettype)
+
+
 # There are three types of page, each with their own processor function
 processors = {u'定期公表': teiki,
               u'解散分': kaisan,
               u'解散支部分': kaisanshibu,
-              u'追加分': tsuika}
+              u'追加分': tsuika,
+              u'日付け官報': kanpo}
 
 
 def check_dir(data_dir, create=False):
@@ -343,14 +438,28 @@ def check_dir(data_dir, create=False):
             raise Exception("Data dir %s doesn't exist - use --mkdirs to create it." % data_dir)
 
 
-def scrape_from(base_url, pattern):
+def scrape_from(base_url, pattern, is_summary):
     logging.info("Starting at %s" % base_url)
     session = requests.Session()
 
-    data = session.get(base_url).content
+    today = str(datetime.date.today())
+    cache_key = filter(lambda x: x, base_url.split('/'))[-1] + '-' + today
+    path = os.path.join(html_cache_dir, cache_key)
+    if not os.path.exists(path):
+        save(session, base_url, path)
+    _seen.add(base_url)
+    data = open(path).read()
     # data = open('test.html').read()
+
     urls, encoding, pagetitle = parse_page(data)
-    urls = filter(report_url_filter(base_url), urls)
+
+    if is_summary:
+        filter_fn = summary_url_filter(base_url)
+    else:
+        filter_fn = report_url_filter(base_url)
+
+    urls = filter(filter_fn, urls)
+    logging.debug("%d starting urls" % len(urls))
     for href, text, node in urls:
         if pattern and not any([p in href for p in pattern]):
             continue
@@ -358,6 +467,9 @@ def scrape_from(base_url, pattern):
         for k, p in processors.items():
             if k in text:
                 p(session, href, text, base_url)
+        if is_summary and href.endswith('.pdf'):
+            # Sepecial case for the junk linked off the main summary page..
+            summary_pdf_downloader(session, href, text, base_url, node)
 
 
 def recheck_meta(base_url):
@@ -403,9 +515,11 @@ def recheck_meta(base_url):
                     import pdb
                     pdb.set_trace()
                     raise
-                page_with_children(FakeSession(), htmlurl, title.split(u'\t')[0], 'teiki', base_url, data=match[0])
+                # FIXME: this is broken
+                _page_with_children(FakeSession(), htmlurl, title.split(u'\t')[0], 'teiki', base_url, data=match[0])
             else:
-                pdf_page(FakeSession(), htmlurl, base_url, ptype, title, base_url)
+                # FIXME: this is broken too
+                _pdf_list_page(FakeSession(), htmlurl, base_url, ptype, title, base_url)
 
             processed_pages.add(htmlurl)
 
@@ -417,6 +531,7 @@ def main():
     PDF_DIR = os.path.abspath(os.path.join(tooldir, '..', 'pdf'))
 
     BASE_URL = SITE + '/senkyo/seiji_s/seijishikin/'
+    BASE_URL_DATA = SITE + '/senkyo/seiji_s/data_seiji/'
 
     from argparse import ArgumentParser
 
@@ -426,6 +541,7 @@ def main():
     p.add_argument("--mkdirs", "-m", action="store_true", help="create cache and pdf dir if they don't exist")
     p.add_argument("--verbose", "-v", action="store_true", help="be more verbose")
     p.add_argument("--recheck-meta", "-r", action="store_true", help="recheck metadata by reparsing html")
+    p.add_argument("--data-only", "-d", action="store_true", help="only check the 'data' page")
     p.add_argument('pattern', nargs='*', help='page pattern')
 
     args = p.parse_args()
@@ -447,10 +563,12 @@ def main():
     pdf_cache_dir = args.pdfdir
 
     if not args.recheck_meta:
-        scrape_from(BASE_URL, args.pattern)
+        if not args.data_only:
+            scrape_from(BASE_URL, args.pattern, False)
+        scrape_from(BASE_URL_DATA, args.pattern, True)
         logging.debug("Downloaded %d files." % _downloaded)
     else:
-        recheck_meta(BASE_URL, args.cachedir, args.pdfdir)
+        recheck_meta(BASE_URL)
 
 if __name__ == '__main__':
     main()
