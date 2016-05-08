@@ -49,7 +49,7 @@ def extract_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=1, la
 def render_page(pdf_fullpath, pageno, dest, autorotate=True):
     # TODO: autorotate?
     try:
-        command = 'convert "%s"[%d] -density 300 "%s"' % (pdf_fullpath, pageno - 1, dest)
+        command = 'convert -density 200 "%s"[%d] "%s"' % (pdf_fullpath, pageno - 1, dest)
         split = shlex.split(command)
         subprocess.call(split)
     except Exception, e:
