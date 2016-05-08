@@ -9,30 +9,14 @@ import subprocess
 from datetime import date
 from argparse import ArgumentParser
 
-year_regex_str = u'(昭和|平成)(\d+)'
-year_regex = re.compile(year_regex_str)
-nenbun_regex = re.compile(year_regex_str + u'年分')
-date_regex = re.compile(year_regex_str + u'年([　\d]\d)月([　\d]\d)日公表')
+from toollib import metautil, DATE_RE, YEAR_RE, year_to_western
 
 # Note the full-width brackets and slash.
 multipart_re = re.compile(u'^(.*)(（.*／.*）.*|（その.*）)')
 
 
-def year_to_western(emp, year):
-    if not isinstance(year, int):
-        year = int(year)
-    # Heisei starts in 1988
-    if emp == u'平成':
-        year = 1988 + year
-    elif emp == u'昭和':
-        year = 1925 + year
-    else:
-        raise ValueError('Unhandled emperor: %s' % emp)
-    return year
-
-
 def title_date(title):
-    result = date_regex.search(title)
+    result = DATE_RE.search(title)
 
     if not result:
         raise ValueError("Title didn't match expected format: %s" % title)
@@ -92,11 +76,6 @@ def fill_caches(s, api_root, groups=True, docsets=True):
             assert d['pubtype_id'] in _pubtype_cache.values()
             assert d['doctype_id'] in _doctype_cache.values()
             _docset_cache[(d['published'], d['pubtype_id'], d['doctype_id'])] = d
-
-
-def dump_meta(meta):
-    for k, v in meta.items():
-        print("%s\t%s" % (k, v))
 
 
 def get_existing_docs(s, api_root):
@@ -197,7 +176,7 @@ def get_or_make_docset(s, api_root, title, docset_type, docdir):
 
 
 def make_doc(s, api_root, docsetid, year, groupid, docfname, url, srcurl, fsize, pagecount, note):
-    m = year_regex.match(year)
+    m = YEAR_RE.match(year)
     if not m:
         raise ValueError("Year %s in metadata for %s doesn't look like a year." % (year, docfname))
     year = year_to_western(*m.groups())
@@ -212,14 +191,11 @@ def make_doc(s, api_root, docsetid, year, groupid, docfname, url, srcurl, fsize,
 
 def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly):
     relative_path = pdf_path[len(pdf_root):]
-    meta_file = pdf_path + '_meta.txt'
+    meta = metautil.get_meta(pdf_path)
 
-    if not os.path.isfile(meta_file):
+    if meta is None:
         logging.warn("Skip %s which has no metadata!" % relative_path)
         return
-
-    meta = open(meta_file).readlines()
-    meta = dict(x.strip().decode('utf-8').split(',') for x in meta)
 
     if 'title' not in meta or 'url' not in meta or 'srcurl' not in meta:
         logging.warn("Invalid metadata for %s!" % relative_path)
@@ -227,7 +203,7 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
 
     url = meta['url']
     if url in docs_by_url:
-        # Verify the contents.. should be the same date
+        # Verify the contents.. should be the same source
         record = docs_by_url[url]
         if record['srcurl'] != meta['srcurl']:
             logging.warn('Difference sources for %s at %s and in db: %s vs %s'

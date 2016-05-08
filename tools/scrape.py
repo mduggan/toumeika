@@ -11,6 +11,8 @@ import datetime
 from cStringIO import StringIO
 from lxml import etree
 
+from toollib import metautil, get_nenbun
+
 SITE = 'http://www.soumu.go.jp'
 
 _BLOCK_SIZE = 4096
@@ -20,9 +22,6 @@ _BLOCK_SIZE = 4096
 _seen = set()
 
 _downloaded = 0
-
-NENBUN = re.compile(u'((平成|昭和)\d+)年分')
-NEN = re.compile(u'((平成|昭和)\d+)年')
 
 # Hacky globals so i can reprocess metadata
 _nowrite = False
@@ -135,7 +134,7 @@ def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, group
     pdf_dir = os.path.dirname(pdf_cache_file)
     if not os.path.isdir(pdf_dir):
         os.makedirs(pdf_dir)
-    meta_file = pdf_cache_file + '_meta.txt'
+    meta_file = metautil.meta_path(pdf_cache_file)
 
     if (not _redo_meta) and os.path.exists(pdf_cache_file) and os.path.exists(meta_file):
         logging.debug("already have pdf and meta for %s" % url)
@@ -194,16 +193,6 @@ def summary_url_filter(baseurl):
              ('/main_content/' in baseurl and '/' not in s[0] and s[0].endswith('pdf')))
         )
     return filterfn
-
-
-def get_nenbun(text, weak=False):
-    year = NENBUN.search(text)
-    if weak and year is None:
-        year = NEN.search(text)
-    if year is not None:
-        year = year.groups()[0]
-
-    return year
 
 
 def page_auto(session, url, base_url, ptype, title, srcurl, data=None, grouptype=None, year=None):
@@ -491,7 +480,7 @@ def recheck_meta(base_url):
 
     logging.info("checking cached pdf files..")
     for root, dirs, files in os.walk(pdf_cache_dir):
-        meta_files = filter(lambda x: x.endswith('_meta.txt'), files)
+        meta_files = filter(metautil.is_meta_path, files)
         if not meta_files:
             continue
         for metafile in meta_files:

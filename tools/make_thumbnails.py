@@ -43,7 +43,7 @@ def main():
 
     p = ArgumentParser(description='Import scraped documents into the database')
     p.add_argument('--pdf-root',
-                   help='Root directory of PDF files to import (default: ../pdf)',
+                   help='Root directory of PDF files to make thumbnails for (default: ../pdf)',
                    default=pdf_root_default)
     p.add_argument('--thumbnail-root',
                    help='Root directory to put thumbnails in (default: ../static/thumbnails',
