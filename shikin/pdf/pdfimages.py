@@ -46,12 +46,15 @@ def extract_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=1, la
             pageno += 1
 
 
-def render_page(pdf_fullpath, pageno, dest, autorotate=True):
+def render_page(pdf_fullpath, pageno, dest, optimise=True, autorotate=True):
     # TODO: autorotate?
     try:
         command = 'convert -density 200 "%s"[%d] "%s"' % (pdf_fullpath, pageno - 1, dest)
         split = shlex.split(command)
         subprocess.call(split)
+
+        if optimise:
+            dest = optimise_png(dest)
     except Exception, e:
         logging.error('Conversion error: %s' % str(e))
         try:
