@@ -372,6 +372,7 @@ def kanpo(session, url, title, base_url):
     grouptype = None
     year = get_nenbun(title)
     docsettype = u'官報'
+    title = title + u' (官報)'
 
     for href, links in linkdata.iteritems():
         cache_pdf(session, href, base_url, SITE, ptype, title, srctitle, grouptype, year, docsettype, more_meta=links)
@@ -395,14 +396,15 @@ def summary_pdf_downloader(session, href, text, base_url, node):
         dd = dd.getprevious()
     if dd is not None and dd.tag == 'dt':
         assert head.text.startswith(u'政治資金収支報告の概要')
-        docsettype = u'政治資金収支報告の概要'
+        #docsettype = u'政治資金収支報告の概要'
         srctitle = dd.text[1:-1]
     else:
         assert head.text.startswith(u'政治資金規正法に基づく届出')
         srctitle = u'政治資金規正法に基づく届出'
 
     docsettype = u'報道資料'
-    title = text
+
+    title = text + u' (報道資料)'
     ptype = 'summary'
     grouptype = None
     year = get_nenbun(text, weak=True)

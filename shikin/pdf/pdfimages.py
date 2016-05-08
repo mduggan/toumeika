@@ -28,7 +28,6 @@ def extract_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=1, la
         lastpagestr = '-l %d' % lastpage if lastpage else ''
         command = 'pdfimages -p -f %d %s -png "%s" "%s"' % (firstpage, lastpagestr, pdf_fullpath, outfile_prefix)
         split = shlex.split(command)
-        import pdb; pdb.set_trace()
         subprocess.call(split)
         outpattern = outfile_prefix + '-%03d-*.png'
 
@@ -50,7 +49,7 @@ def extract_images(pdf_fullpath, optimise=True, autorotate=True, firstpage=1, la
 def render_page(pdf_fullpath, pageno, dest, autorotate=True):
     # TODO: autorotate?
     try:
-        command = 'convert "%s"[%d] "%s"' % (pdf_fullpath, pageno - 1, dest)
+        command = 'convert "%s"[%d] -density 300 "%s"' % (pdf_fullpath, pageno - 1, dest)
         split = shlex.split(command)
         subprocess.call(split)
     except Exception, e:

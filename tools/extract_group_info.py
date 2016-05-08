@@ -27,13 +27,17 @@ type_re_str = u'政治資金規正法(及び政党助成法)?に基.く(.*)$'
 TYPE_RE = re.compile(type_re_str, flags=re.UNICODE)
 
 # One doc doesn't follow the character encoding rules, nothing can decode it
-# properly..
+# properly.
 HARDCODED_DOCS = {
     '000258038.pdf':
         {'gname': u'社会民主党',
          'doctype': u'異動の届出'}
 }
 
+TYPE_MAPPING = {
+    u'政党の届出事項の異動の届出': u'異動の届出',
+    u'政治団体の届出事項の異動の届出': u'異動の届出',
+}
 
 def check_pdf(pdf_dir, pdf_file):
     pdfpath = os.path.join(pdf_dir, pdf_file)
@@ -41,7 +45,6 @@ def check_pdf(pdf_dir, pdf_file):
     meta = metautil.get_meta(pdfpath)
 
     if meta is None:
-        import pdb; pdb.set_trace()
         logging.warn('skip %s with no metadata' % pdfpath)
         return
 
@@ -53,20 +56,19 @@ def check_pdf(pdf_dir, pdf_file):
         logging.warn('skip %s with page type %s (expect summary)' % (pdfpath, meta.get('pagetype')))
         return
 
-    if meta.get('srctitle') != u'政治資金規正法に基づく届出':
-        # No problem, just not the type of doc we process
+    if meta.get('srctitle') != u'政治資金規正法に基づく届出' or meta.get('docsettype') != u'報道資料':
+        # No problem, just not the type of doc we process, or maybe already processed
         return
 
-    # TODO: get text from pdf.
     pdftext = extract_pdf_text(pdfpath).decode('utf-8')
 
-    if '(cid:' in pdftext:
-        if pdf_file in HARDCODED_DOCS:
-            gname = HARDCODED_DOCS[pdf_file]['gname']
-            doctype = HARDCODED_DOCS[pdf_file]['doctype']
-        else:
-            logging.warn('%s contains unknown characters' % pdf_file)
-            return
+    # Some docs are really borken :(
+    if pdf_file in HARDCODED_DOCS:
+        gname = HARDCODED_DOCS[pdf_file]['gname']
+        doctype = HARDCODED_DOCS[pdf_file]['doctype']
+    elif '(cid:' in pdftext:
+        logging.warn('%s contains unknown characters' % pdf_file)
+        return
     else:
         lines = pdftext.splitlines()
         lines = [x.strip() for x in lines]
@@ -83,7 +85,16 @@ def check_pdf(pdf_dir, pdf_file):
 
 
 def update_meta(metapath, meta, gname, doctype):
-    pass
+    meta['docsettype'] = doctype
+    meta['srctitle'] = gname
+
+    metaout = open(metapath, 'wb')
+    for k, v in meta.iteritems():
+        encoded_v = v
+        if type(v) == unicode:
+            encoded_v = v.encode('utf-8')
+        metaout.write('%s,%s\n' % (str(k), str(encoded_v)))
+    metaout.close()
 
 
 def todoke_type(lines, pdf_file):
@@ -103,39 +114,42 @@ def todoke_type(lines, pdf_file):
 
 
 def group_name(lines, pdf_file):
+    """
+    Extract the best group name.  Docs can mention both a party and a funding
+    group name.  The group name is what we really want, so prioritise that.
+    """
     gname = None
+    gtype = None
     for l in lines:
         m = NAME_RE.search(l)
         if m is None:
             continue
         if gname is not None:
-            logging.warn('skip %s: Got 2 group names in one doc' % pdf_file)
+            logging.warn('skip %s: 2 groups in one doc: %s [%s] and %s [%s]' % (pdf_file, gname, gtype, m.groups()[2], m.groups()[0]))
             return
         gname = m.groups()[2].strip()
+        gtype = m.groups()[0].strip()
         if u'五十音順' in gname:
             # HACK: some docs are really borked..
             return
-        #logging.info(u'%s is a doc for %s' % (pdf_file, gname))
+        logging.info(u'%s is a doc for %s' % (pdf_file, gname))
     return gname
 
 
+LAPARAMS = LAParams()
+LAPARAMS.line_margin = 10.0
+
+
 def extract_pdf_text(fname):
-    # output option
-    codec = 'utf-8'
     rsrcmgr = PDFResourceManager(caching=True)
+    codec = 'utf-8'
     outfp = StringIO()
-    laparams = LAParams()
-    laparams.line_margin = 10.0
-
-    device = TextConverter(rsrcmgr, outfp, codec=codec, laparams=laparams,
+    device = TextConverter(rsrcmgr, outfp, codec=codec, laparams=LAPARAMS,
                            imagewriter=None)
-
     fp = file(fname, 'rb')
     interpreter = PDFPageInterpreter(rsrcmgr, device)
-    for page in PDFPage.get_pages(fp, set(),
-                                  maxpages=1,
+    for page in PDFPage.get_pages(fp, set(), maxpages=1,
                                   caching=True, check_extractable=True):
-        page.rotate = (page.rotate) % 360
         interpreter.process_page(page)
     fp.close()
     device.close()

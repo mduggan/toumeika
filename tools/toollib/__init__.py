@@ -6,7 +6,8 @@ _YEAR_REGEX_STR = u'(昭和|平成)(\d+)'
 YEAR_RE = re.compile(_YEAR_REGEX_STR)
 NENBUN_RE = re.compile(_YEAR_REGEX_STR + u'年分')
 NEN_RE = re.compile(_YEAR_REGEX_STR + u'年')
-DATE_RE = re.compile(_YEAR_REGEX_STR + u'年([　\d]\d)月([　\d]\d)日公表')
+# Note both full-width and half-width spaces in this re. orz.
+DATE_RE = re.compile(_YEAR_REGEX_STR + u'年([ 　\d]\d)月([ 　\d]\d)日(公表|発表)')
 
 
 def get_nenbun(text, weak=False):

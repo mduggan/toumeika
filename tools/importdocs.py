@@ -12,16 +12,23 @@ from argparse import ArgumentParser
 from toollib import metautil, DATE_RE, YEAR_RE, year_to_western
 
 # Note the full-width brackets and slash.
-multipart_re = re.compile(u'^(.*)(（.*／.*）.*|（その.*）)')
+MULTIPART_RE = re.compile(u'^(.*)(（.*／.*）.*|（その.*）)')
+
+# Simplify a couple of docset types
+DOCSETTYPE_MAPPING = {
+    u'政党の届出事項の異動の届出': u'異動の届出',
+    u'政治団体の届出事項の異動の届出': u'異動の届出',
+}
 
 
 def title_date(title):
     result = DATE_RE.search(title)
 
-    if not result:
+    if result is None:
+        import pdb; pdb.set_trace()
         raise ValueError("Title didn't match expected format: %s" % title)
 
-    (emp, year, month, day) = result.groups()
+    (emp, year, month, day) = result.groups()[:4]
     year = int(year.strip())
     month = int(month.strip())
     day = int(day.strip())
@@ -150,6 +157,9 @@ def get_or_make_docset(s, api_root, title, docset_type, docdir):
         logging.warn(u"Couldn't guess pubtype from title %s" % title)
         return
 
+    if docset_type in DOCSETTYPE_MAPPING:
+        docset_type = DOCSETTYPE_MAPPING[docset_type]
+
     if docset_type not in _doctype_cache:
         logging.warn(u"Doc type %s not in DB" % docset_type)
         # Search for similar docsets in the cache
@@ -214,7 +224,7 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
 
         note = None
 
-        notepart = multipart_re.search(gname)
+        notepart = MULTIPART_RE.search(gname)
         # logging.info(u"Group %s notepart %s." % (gname, notepart))
         if notepart is not None:
             notepart = notepart.groups()
