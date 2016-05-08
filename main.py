@@ -37,6 +37,11 @@ def initdb_command(args):
         db.session.add(DocType(u'政治資金収支報告書'))
         db.session.add(DocType(u'政党交付金使途等報告書'))
         db.session.add(DocType(u'政治資金収支報告書の要旨'))
+    if doctypes <= 4:
+        db.session.add(DocType(u'異動の届出'))
+        db.session.add(DocType(u'政治団体の届出'))
+        db.session.add(DocType(u'政党の解散の届出'))
+        db.session.add(DocType(u'政党でなくなった旨の公表'))
         db.session.commit()
 
     pubtypes = PubType.query.count()
@@ -45,6 +50,9 @@ def initdb_command(args):
         db.session.add(PubType(u'解散分'))
         db.session.add(PubType(u'追加分'))
         db.session.add(PubType(u'解散支部分'))
+    if pubtypes < 5:
+        db.session.add(PubType(u'報道資料'))
+        db.session.add(PubType(u'官報'))
         db.session.commit()
 
     users = User.query.count()
