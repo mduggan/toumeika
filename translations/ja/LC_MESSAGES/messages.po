@@ -1,64 +1,87 @@
-# Japanese translations for PROJECT.
+# Japanese translations for Toumeika.
 # Copyright (C) 2015 ORGANIZATION
-# This file is distributed under the same license as the PROJECT project.
+# This file is distributed under the same license as the Toumeika project.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2015.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: Toumeika 0.1\n"
 "Report-Msgid-Bugs-To: matthew@toumeika.jp\n"
-"POT-Creation-Date: 2015-07-04 17:42+0900\n"
-"PO-Revision-Date: 2015-07-19 12:09+0900\n"
+"POT-Creation-Date: 2016-05-19 21:11+0900\n"
+"PO-Revision-Date: 2016-05-19 21:11+0900\n"
 "Last-Translator: Matthew Duggan\n"
 "Language-Team: ja <matthew@guarana.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Plural-Forms: nplurals=1; plural=0\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 1.3\n"
-"Language: ja\n"
-"X-Generator: Poedit 1.8.2\n"
 
 #: templates/about.html:5
 msgid "About the site"
 msgstr "当サイトについて"
 
 #: templates/about.html:7
-msgid "TODO: Write something about the site."
+msgid ""
+"Toumeika is an unofficial index of Japanese political funding "
+"declarations."
+msgstr ""
+
+#: templates/about.html:8
+msgid ""
+"A few times a year, the Ministry of Internal Affairs and Communications "
+"publishes political funds declarations <a "
+"href=\"http://www.soumu.go.jp/senkyo/seiji_s/seijishikin/\">on its "
+"website</a>.  The format of publication is difficult to access, has no "
+"search capability, and the documents are only retained for the most "
+"recent 3 years."
+msgstr ""
+
+#: templates/about.html:9
+msgid ""
+"From 2012, this site has been indexing and mirroring all the documents to"
+" make them more accessible."
+msgstr ""
+
+#: templates/about.html:10
+msgid ""
+"If you have feedback, ideas, or would like to help out, please go to the "
+"<i class=\"fa fa-github\"></i> <a "
+"href=\"https://github.com/mduggan/shikin/\">Github project</a>."
 msgstr ""
 
 #: templates/base.html:9
 msgid "Toumeika"
 msgstr "トウメイカ"
 
-#: templates/base.html:42 templates/index.html:5
+#: templates/base.html:45 templates/index.html:5
 msgid "Political Funds <i>Toumeika</i>"
 msgstr "政治資金<i>トウメイカ</i>"
 
-#: templates/base.html:47
+#: templates/base.html:50
 msgid "Home"
 msgstr "トップページ"
 
-#: templates/base.html:48 templates/index.html:25 templates/index.html:27
+#: templates/base.html:51 templates/index.html:37 templates/index.html:39
 msgid "Groups"
 msgstr "政治団体"
 
-#: templates/base.html:49
+#: templates/base.html:52
 msgid "About"
 msgstr "サイトについて"
 
-#: templates/base.html:61
+#: templates/base.html:64
 msgid ""
-"&copy; Matthew Duggan 2015.  PDF documents from <a href=\"http://www."
-"soumu.go.jp/\">MIC</a>."
+"&copy; Matthew Duggan 2015.  PDF documents from <a "
+"href=\"http://www.soumu.go.jp/\">MIC</a>."
 msgstr ""
-"&copy; Matthew Duggan 2015年。PDFファイルは<a href=\"http://www.soumu.go."
-"jp/\">総務省</a>より。"
+"&copy; Matthew Duggan 2015年。PDFファイルは<a "
+"href=\"http://www.soumu.go.jp/\">総務省</a>より。"
 
-#: templates/base.html:62
+#: templates/base.html:65
 msgid ""
-"Report bugs or help out at <i class=\"fa fa-github\"></i> <a href="
-"\"https://github.com/mduggan/shikin/\">Github</a>."
+"Report bugs or help out at <i class=\"fa fa-github\"></i> <a "
+"href=\"https://github.com/mduggan/shikin/\">Github</a>."
 msgstr ""
 
 #: templates/document.html:5
@@ -94,8 +117,7 @@ msgstr "政治団体"
 msgid "Declared Year"
 msgstr "年度"
 
-#: templates/document.html:26 templates/group.html:15
-#: templates/pubs.html:13
+#: templates/document.html:26 templates/group.html:23 templates/pubs.html:13
 msgid "Published"
 msgstr "公表日"
 
@@ -103,31 +125,50 @@ msgstr "公表日"
 msgid "Publication Type"
 msgstr "公表分"
 
-#: templates/document.html:34 templates/group.html:17
+#: templates/document.html:34 templates/pubs.html:12
+#, fuzzy
+msgid "Document Type"
+msgstr "ファイル詳細"
+
+#: templates/document.html:38 templates/group.html:25
 msgid "Pages"
 msgstr "ページ数"
 
-#: templates/document.html:38 templates/group.html:18
+#: templates/document.html:42 templates/group.html:26
 msgid "Size"
 msgstr "サイズ"
 
-#: templates/document.html:43 templates/group.html:19
+#: templates/document.html:47 templates/group.html:27
 msgid "Note"
 msgstr "メモ"
 
-#: templates/group.html:13
+#: templates/group.html:10
+msgid "Activity"
+msgstr "近年の報告"
+
+#: templates/group.html:17
+#, fuzzy
+msgid "Document List"
+msgstr "報告書数"
+
+#: templates/group.html:21
 msgid "Filename"
 msgstr "ファイル名"
 
-#: templates/group.html:14 templates/index.html:35
+#: templates/group.html:22 templates/index.html:47
 msgid "Year"
 msgstr "年度"
 
-#: templates/group.html:16
+#: templates/group.html:24
 msgid "Pub. Type"
 msgstr "公表分"
 
-#: templates/group.html:28
+#: templates/group.html:37
+#, fuzzy
+msgid "Associated Group Activity"
+msgstr "関連の政治団体"
+
+#: templates/group.html:45
 msgid "Associated Groups"
 msgstr "関連の政治団体"
 
@@ -153,9 +194,9 @@ msgstr "年分別"
 
 #: templates/index.html:6
 msgid ""
-"An unofficial search engine for political funding declarations (<a href="
-"\"http://www.soumu.go.jp/senkyo/seiji_s/seijishikin/\">政治資金収支報告書"
-"</a>) from Japan's Ministry of Internal Affairs and Communications"
+"An unofficial index of political funding declarations (<a "
+"href=\"http://www.soumu.go.jp/senkyo/seiji_s/seijishikin/\">政治資金収支報告書</a>)"
+" from Japan's Ministry of Internal Affairs and Communications"
 msgstr ""
 
 #: templates/index.html:11
@@ -167,42 +208,51 @@ msgstr "党名か政治団体名で検索（例：海賊党, 神の党、など�
 msgid "No documents match %(nomatch)s."
 msgstr "%(nomatch)sに当たる報告書は見つかりませんでした。"
 
-#: templates/index.html:22
-msgid "Or start browsing by..."
+#: templates/index.html:19
+msgid "Popular Search"
+msgstr "人気上昇中"
+
+#: templates/index.html:25
+msgid "Declaration Trend"
+msgstr "近年の報告"
+
+#: templates/index.html:29
+#, python-format
+msgid "%(doccount)s documents indexed"
 msgstr ""
 
-#: templates/index.html:26
-msgid "Political groups (eg, 自民党, みんなの党, etc)"
-msgstr "（民主党、みんなの党、など ）"
+#: templates/index.html:34
+msgid "Start browsing documents by..."
+msgstr ""
 
-#: templates/index.html:30 templates/index.html:32
+#: templates/index.html:38
+msgid "Political groups (eg, 自民党, みんなの党, etc)"
+msgstr ""
+
+#: templates/index.html:42 templates/index.html:44
+#, fuzzy
 msgid "Publications"
 msgstr "公表"
 
-#: templates/index.html:31
+#: templates/index.html:43
 msgid "Documents split by when they were published"
-msgstr "公表日から報告書を選ぶ"
+msgstr ""
 
-#: templates/index.html:36
+#: templates/index.html:48
 msgid "Documents split by the year being declared"
-msgstr "報告年分から選ぶ"
+msgstr ""
 
-#: templates/index.html:38
+#: templates/index.html:50
 msgid "By Year"
-msgstr "年分別"
+msgstr ""
 
 #: templates/pubs.html:5
 #, fuzzy
 msgid "All Publications"
 msgstr "公表"
 
-#: templates/pubs.html:12
+#: templates/years.html:5
 #, fuzzy
-msgid "Document Type"
-msgstr "ファイル詳細"
+msgid "Publications by Year"
+msgstr "公表分"
 
-#~ msgid "政治資金検索"
-#~ msgstr "政治資金検索"
-
-#~ msgid "Political Funds Database"
-#~ msgstr "政治資金データベース"
