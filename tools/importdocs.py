@@ -44,7 +44,7 @@ def makefilter(field, val, op='=='):
 
 def _get_all(s, api_root, otype):
     LIST_ALL_PARAM = {'results_per_page': '50000'}
-    objs = s.get(api_root + otype, params=LIST_ALL_PARAM).json()
+    objs = s.get(api_root + otype, params=LIST_ALL_PARAM, verify=False).json()
 
     # FIXME: This may break eventually..
     assert objs['total_pages'] <= 1
@@ -133,7 +133,7 @@ def get_or_make_group(s, api_root, name, gtype, parent):
         return
 
     obj = {'name': name, 'type_id': _grouptype_cache[gtype], 'parent_id': parent_id}
-    result = s.post(api_root + 'group', data=json.dumps(obj)).json()
+    result = s.post(api_root + 'group', data=json.dumps(obj), verify=False).json()
     if 'id' not in result:
         raise ValueError('Group add: got back %s' % result)
     _group_cache[name] = result
@@ -177,7 +177,7 @@ def get_or_make_docset(s, api_root, title, docset_type, docdir):
         return _docset_cache[key]
 
     obj = {'published': str(docset_date), 'pubtype_id': docset_pubtype, 'doctype_id': docset_type, 'path': docdir}
-    result = s.post(api_root + 'doc_set', data=json.dumps(obj)).json()
+    result = s.post(api_root + 'doc_set', data=json.dumps(obj), verify=False).json()
     if 'id' not in result:
         raise ValueError('Docset add: got back %s' % result)
     _docset_cache[key] = result
@@ -192,7 +192,7 @@ def make_doc(s, api_root, docsetid, year, groupid, docfname, url, srcurl, fsize,
     year = year_to_western(*m.groups())
     obj = {'docset_id': docsetid, 'year': year, 'group_id': groupid, 'filename': docfname,
            'url': url, 'srcurl': srcurl, 'size': fsize, 'pages': pagecount, 'note': note}
-    result = s.post(api_root + 'document', data=json.dumps(obj)).json()
+    result = s.post(api_root + 'document', data=json.dumps(obj), verify=False).json()
     if 'id' not in result:
         raise ValueError('Document add: got back %s' % result)
 
