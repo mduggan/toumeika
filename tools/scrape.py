@@ -302,6 +302,10 @@ def _page_with_children(session, url, title, ptype, base_url, data, repurls, enc
             grouptype_b = grouptype_comment.split()[0]
             if grouptype_b == u'議員別' and grouptype.startswith(u'国会議員関係政治団体'):
                 grouptype = grouptype_b
+            elif grouptype_b == u'政党支部':
+                # Hack for http://www.soumu.go.jp/senkyo/seiji_s/seijishikin/reports/SS20181130/
+                # which drops the "no" in the comment
+                grouptype_b = u'政党の支部'
             elif grouptype_b.startswith('<'):
                 # Nope, not what we were looking for.
                 grouptype_b = None
@@ -309,7 +313,7 @@ def _page_with_children(session, url, title, ptype, base_url, data, repurls, enc
             if not (not grouptype_b or grouptype_b == u'タイトル終了' or grouptype_b == grouptype):
                 import pdb; pdb.set_trace()
 
-            assert _grouptype is None or grouptype == _grouptype
+            assert (_grouptype is None) or (grouptype == _grouptype)
         else:
             grouptype = _grouptype
 
