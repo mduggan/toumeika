@@ -119,6 +119,10 @@ def get_or_make_group(s, api_root, name, gtype, parent):
                          (name, gtype, _grouptype_cache.get(gtype), _group_cache[name]['type_id']))
         return cached_group
 
+    if gtype is None:
+        logging.error("Couldn't work out grouptype for %s (parent %s)" % (name, parent))
+        return
+
     assert(gtype is not None)
 
     parent_id = None
@@ -252,7 +256,11 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
             gtype = u'政党支部'
         if gtype == u'資金管理団体（国会議員関係政治団体を除く。）':
             gtype = u'資金管理団体'
+        if gtype == u'資金管理団体(国会議員関係政治団体を除く。)':
+            gtype = u'資金管理団体'
         if gtype == u'国会議員関係政治団体（政党の支部を除く。）':
+            gtype = u'国会議員関係政治団体'
+        if gtype == u'国会議員関係政治団体(政党の支部を除く。)':
             gtype = u'国会議員関係政治団体'
         if gtype == u'政党':
             # This could be honbu or shibu
@@ -268,6 +276,7 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
 
         group = get_or_make_group(s, api_root, gname, gtype, parent)
         if group is None:
+            logging.debug('skipping %s because group is not clear' % pdf_path)
             # Something went wrong.. unknown type?
             return
 
@@ -275,6 +284,10 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
         docset = get_or_make_docset(s, api_root, title, meta['docsettype'], docdir)
 
         if groupsonly:
+            return
+
+        if docset is None:
+            logging.debug('skipping %s because docset is not clear' % pdf_path)
             return
 
         # Collect pdf stats - size and pages

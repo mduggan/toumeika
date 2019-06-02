@@ -28,7 +28,11 @@ def get_meta(pdf_path):
         return None
 
     meta = open(meta_file).readlines()
-    meta = dict(x.strip().decode('utf-8').split(',') for x in meta)
+    try:
+        meta = dict(x.strip().decode('utf-8').split(',') for x in meta)
+    except ValueError:
+        print("ERROR reading meta for %s!" % pdf_path)
+        raise
 
     return meta
 
