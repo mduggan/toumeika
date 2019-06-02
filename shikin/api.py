@@ -5,7 +5,7 @@ Shikin, political donations database.
 
 import os
 from flask import send_file, send_from_directory, request, jsonify, abort, session
-from flask.ext import restless
+import flask_restless
 from sqlalchemy.orm.properties import ColumnProperty
 
 from . import app
@@ -14,7 +14,7 @@ from .pdf import pdfimages
 from .util import dologin
 
 # Create the Flask-Restless API manager.
-manager = restless.APIManager(app, flask_sqlalchemy_db=app.dbobj)
+manager = flask_restless.APIManager(app, flask_sqlalchemy_db=app.dbobj)
 
 
 @app.after_request
@@ -35,7 +35,7 @@ def check_write_authorization(*args, **kw):
 
     # For now only allow local modifications
     if request.remote_addr not in ('127.0.0.1', '::1') and (u is None or not u.is_admin):
-        raise restless.ProcessingException(description='Not Authorized',
+        raise flask_restless.ProcessingException(description='Not Authorized',
                                            code=401)
 
 

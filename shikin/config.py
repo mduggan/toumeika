@@ -8,6 +8,7 @@ DEBUG = True
 APP_NAME = 'shikin'
 PDF_DIR = 'pdf'
 THUMBNAIL_DIR = '/static/thumbnails'
+SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 LANGUAGES = {
     'en': 'English',
