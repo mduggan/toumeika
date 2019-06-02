@@ -311,6 +311,9 @@ def _page_with_children(session, url, title, ptype, base_url, data, repurls, enc
                 grouptype_b = None
 
             if not (not grouptype_b or grouptype_b == u'タイトル終了' or grouptype_b == grouptype):
+                logging.error(u'ERROR: Group type in comment (%s) dosn\'t match group type in table heading!! (%s)' % grouptype_b, grouptype)
+                logging.error(u'URL: %s' % url)
+                logging.error(u'breaking into the debugger so you can sort it out :(')
                 import pdb; pdb.set_trace()
 
             assert (_grouptype is None) or (grouptype == _grouptype)
