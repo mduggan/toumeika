@@ -1,14 +1,14 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import requests
 import logging
 import os
-import md5
+from hashlib import md5
 import re
-import urlparse
+import urllib.parse
 import datetime
-from cStringIO import StringIO
+from io import BytesIO
 from lxml import etree
 
 from toollib import metautil, get_nenbun
@@ -64,20 +64,20 @@ def normalise(url, base):
         return url
 
     if base:
-        url = urlparse.urljoin(base, url)
+        url = urllib.parse.urljoin(base, url)
     return url
 
 
 onclick_re = re.compile("window.open\('([^']*\.pdf)','pdf','[^']*'\);")
 
 
-def parse_page(text):
+def parse_page(data):
     """
     Extract URLs and their names from some text.  Returns the encoding of
     the document as well, thanks to scope creep.
     """
     parser = etree.HTMLParser()
-    tree = etree.parse(StringIO(text), parser)
+    tree = etree.parse(BytesIO(data), parser)
     urls = []
     links = tree.xpath('//a')
     for l in links:
@@ -109,12 +109,12 @@ def cache_page(session, url, srcurl):
     if url in _seen:
         logging.warn("ALREADY SEEN PAGE %s" % url)
         return None
-    key = md5.md5(url).hexdigest()
+    key = md5(bytes(url, "utf-8")).hexdigest()
     path = os.path.join(html_cache_dir, key)
     if not os.path.exists(path):
         save(session, url, path)
     _seen.add(url)
-    return open(path).read()
+    return open(path, 'rb').read()
 
 
 def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, grouptype, year, docsettype, more_meta=None):
@@ -149,19 +149,19 @@ def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, group
             # oldmeta = open(meta_file, 'rb').read()
             pass
 
-        meta = open(meta_file, 'wb')
+        meta = open(meta_file, 'w', encoding="utf-8")
         meta.write('url,%s\n' % url)
         meta.write('srcurl,%s\n' % srcurl)
-        meta.write('title,%s\n' % title.encode('utf-8'))
-        meta.write('srctitle,%s\n' % srctitle.encode('utf-8'))
-        meta.write('pagetype,%s\n' % ptype.encode('utf-8'))
-        meta.write('grouptype,%s\n' % grouptype.encode('utf-8') if grouptype else '')
-        meta.write('docsettype,%s\n' % docsettype.encode('utf-8'))
-        meta.write('year,%s\n' % year.encode('utf-8'))
+        meta.write('title,%s\n' % title)
+        meta.write('srctitle,%s\n' % srctitle)
+        meta.write('pagetype,%s\n' % ptype)
+        meta.write('grouptype,%s\n' % grouptype if grouptype else '')
+        meta.write('docsettype,%s\n' % docsettype)
+        meta.write('year,%s\n' % year)
         meta.write('fetched,%s\n' % str(datetime.datetime.now()))
         if more_meta is not None:
             for k, v in more_meta:
-                meta.write('%s,%s\n' % (k, v.encode('utf-8')))
+                meta.write(b'%s,%s\n' % (k, v))
 
         meta.close()
     except:
@@ -204,7 +204,7 @@ def page_auto(session, url, base_url, ptype, title, srcurl, data=None, grouptype
     if data is None:
         return
     urls, encoding, pagetitle = parse_page(data)
-    repurls = filter(report_url_filter(url), urls)
+    repurls = list(filter(report_url_filter(url), urls))
 
     if not len(repurls):
         import pdb; pdb.set_trace()
@@ -223,15 +223,15 @@ def page_auto(session, url, base_url, ptype, title, srcurl, data=None, grouptype
 
 def _pdf_list_page(session, url, site_base_url, ptype, title, srcurl, data, repurls, encoding, pagetitle, _grouptype=None, _year=None):
     """ Process a page which is just links to a bunch of PDFs """
-    pdfurls = filter(lambda u: u[0].endswith('.pdf'), repurls)
+    pdfurls = [u for u in repurls if u[0].endswith('.pdf')]
     for purl, ptitle, node in pdfurls:
         if ptitle is None:
             # HACK: Hand code a couple of broken corner cases
             if purl.endswith('SD20110228/220210.pdf') or purl.endswith('SA20110228/200210.pdf'):
-                ptitle = u'高健社'
+                ptitle = '高健社'
             else:
                 logging.warn('No title for %s..' % purl)
-                ptitle = u'(無題)'
+                ptitle = '(無題)'
 
         # Find the group type and year for non teiki pages
         grouptype = _grouptype
@@ -297,23 +297,24 @@ def _page_with_children(session, url, title, ptype, base_url, data, repurls, enc
             grouptype = grouptypes[colno]
 
             # Horrible hack method to check title, works on some pages..
-            grouptype_offset = data.rfind('<!--', 0, data.index(suburl)) + 5
-            grouptype_comment = data[grouptype_offset:grouptype_offset+20].decode(encoding)
+            sdata = data.decode(encoding)
+            grouptype_offset = sdata.rfind('<!--', 0, sdata.index(suburl)) + 5
+            grouptype_comment = sdata[grouptype_offset:grouptype_offset+20]
             grouptype_b = grouptype_comment.split()[0]
-            if grouptype_b == u'議員別' and grouptype.startswith(u'国会議員関係政治団体'):
+            if grouptype_b == '議員別' and grouptype.startswith('国会議員関係政治団体'):
                 grouptype = grouptype_b
-            elif grouptype_b == u'政党支部':
+            elif grouptype_b == '政党支部':
                 # Hack for http://www.soumu.go.jp/senkyo/seiji_s/seijishikin/reports/SS20181130/
                 # which drops the "no" in the comment
-                grouptype_b = u'政党の支部'
+                grouptype_b = '政党の支部'
             elif grouptype_b.startswith('<'):
                 # Nope, not what we were looking for.
                 grouptype_b = None
 
-            if not (not grouptype_b or grouptype_b == u'タイトル終了' or grouptype_b == grouptype):
-                logging.error(u'ERROR: Group type in comment (%s) dosn\'t match group type in table heading!! (%s)' % grouptype_b, grouptype)
-                logging.error(u'URL: %s' % url)
-                logging.error(u'breaking into the debugger so you can sort it out :(')
+            if not (not grouptype_b or grouptype_b == 'タイトル終了' or grouptype_b == grouptype):
+                logging.error('ERROR: Group type in comment (%s) dosn\'t match group type in table heading!! (%s)' % grouptype_b, grouptype)
+                logging.error('URL: %s' % url)
+                logging.error('breaking into the debugger so you can sort it out :(')
                 import pdb; pdb.set_trace()
 
             assert (_grouptype is None) or (grouptype == _grouptype)
@@ -325,7 +326,7 @@ def _page_with_children(session, url, title, ptype, base_url, data, repurls, enc
         if suburl.endswith('.pdf'):
             cache_pdf(session, suburl, url, base_url, ptype, title, linktitle, grouptype, year, pagetitle)
         else:
-            combined_title = u'%s\t%s' % (title, linktitle)
+            combined_title = '%s\t%s' % (title, linktitle)
             sub_ptype = ptype + 'sub'
             page_auto(session, suburl, base_url, sub_ptype, combined_title, url, data=None, grouptype=grouptype, year=year)
 
@@ -357,7 +358,7 @@ def kanpo(session, url, title, base_url):
     if data is None:
         return
     urls, encoding, pagetitle = parse_page(data)
-    urls = filter(summary_url_filter(url), urls)
+    urls = list(filter(summary_url_filter(url), urls))
 
     linkdata = {}
 
@@ -368,20 +369,20 @@ def kanpo(session, url, title, base_url):
             pageno = int(hashpart[5:])
         else:
             pageno = 1
-        link = u'%s\t%d' % (text, pageno)
+        link = '%s\t%d' % (text, pageno)
         if href in linkdata:
             linkdata[href].append(('page', link))
         else:
             linkdata[href] = [('page', link)]
 
     ptype = 'kanpo'
-    srctitle = u'政治資金収支報告書の要旨'
+    srctitle = '政治資金収支報告書の要旨'
     grouptype = None
     year = get_nenbun(title)
-    docsettype = u'官報'
-    title = title + u' (官報)'
+    docsettype = '官報'
+    title = title + ' (官報)'
 
-    for href, links in linkdata.iteritems():
+    for href, links in linkdata.items():
         cache_pdf(session, href, base_url, SITE, ptype, title, srctitle, grouptype, year, docsettype, more_meta=links)
 
 
@@ -394,6 +395,8 @@ def summary_pdf_downloader(session, href, text, base_url, node):
     """
     assert href.endswith('.pdf')
     dd = node.getparent()
+    if dd.tag != 'dd':
+        import pdb; pdb.set_trace()
     assert dd.tag == 'dd'
     dl = dd.getparent()
     assert dl.tag == 'dl'
@@ -402,16 +405,16 @@ def summary_pdf_downloader(session, href, text, base_url, node):
     while dd is not None and dd.tag == 'dd':
         dd = dd.getprevious()
     if dd is not None and dd.tag == 'dt':
-        assert head.text.startswith(u'政治資金収支報告の概要')
+        assert head.text.startswith('政治資金収支報告の概要')
         #docsettype = u'政治資金収支報告の概要'
         srctitle = dd.text[1:-1]
     else:
-        assert head.text.startswith(u'政治資金規正法に基づく届出')
-        srctitle = u'政治資金規正法に基づく届出'
+        assert head.text.startswith('政治資金規正法に基づく届出')
+        srctitle = '政治資金規正法に基づく届出'
 
-    docsettype = u'報道資料'
+    docsettype = '報道資料'
 
-    title = text + u' (報道資料)'
+    title = text + ' (報道資料)'
     ptype = 'summary'
     grouptype = None
     year = get_nenbun(text, weak=True)
@@ -420,11 +423,11 @@ def summary_pdf_downloader(session, href, text, base_url, node):
 
 
 # There are three types of page, each with their own processor function
-processors = {u'定期公表': teiki,
-              u'解散分': kaisan,
-              u'解散支部分': kaisanshibu,
-              u'追加分': tsuika,
-              u'日付け官報': kanpo}
+processors = {'定期公表': teiki,
+              '解散分': kaisan,
+              '解散支部分': kaisanshibu,
+              '追加分': tsuika,
+              '日付け官報': kanpo}
 
 
 def check_dir(data_dir, create=False):
@@ -441,12 +444,12 @@ def scrape_from(base_url, pattern, is_summary):
     session = requests.Session()
 
     today = str(datetime.date.today())
-    cache_key = filter(lambda x: x, base_url.split('/'))[-1] + '-' + today
+    cache_key = [x for x in base_url.split('/') if x][-1] + '-' + today
     path = os.path.join(html_cache_dir, cache_key)
     if not os.path.exists(path):
         save(session, base_url, path)
     _seen.add(base_url)
-    data = open(path).read()
+    data = open(path, 'rb').read()
     # data = open('test.html').read()
 
     urls, encoding, pagetitle = parse_page(data)
@@ -456,18 +459,19 @@ def scrape_from(base_url, pattern, is_summary):
     else:
         filter_fn = report_url_filter(base_url)
 
-    urls = filter(filter_fn, urls)
+    urls = list(filter(filter_fn, urls))
     logging.debug("%d starting urls" % len(urls))
     for href, text, node in urls:
         if pattern and not any([p in href for p in pattern]):
             continue
         href = normalise(href, base_url)
-        for k, p in processors.items():
+        for k, p in list(processors.items()):
             if k in text:
                 p(session, href, text, base_url)
         if is_summary and href.endswith('.pdf'):
             # Sepecial case for the junk linked off the main summary page..
-            summary_pdf_downloader(session, href, text, base_url, node)
+            #summary_pdf_downloader(session, href, text, base_url, node)
+            continue
 
 
 def recheck_meta(base_url):
@@ -489,7 +493,7 @@ def recheck_meta(base_url):
 
     logging.info("checking cached pdf files..")
     for root, dirs, files in os.walk(pdf_cache_dir):
-        meta_files = filter(metautil.is_meta_path, files)
+        meta_files = list(filter(metautil.is_meta_path, files))
         if not meta_files:
             continue
         for metafile in meta_files:
@@ -501,20 +505,20 @@ def recheck_meta(base_url):
                 continue
             srctitle = meta['srctitle']
             ptype = meta['pagetype']
-            title = meta['title'].decode('utf-8')
+            title = meta['title']
 
             # So many hacks :(
             if ptype == 'teikisub':
                 srcurl = meta['srcurl']
                 if srcurl.startswith('http'):
                     srcurl = srcurl[len(SITE):]
-                match = filter(lambda x: '"%s"' % srcurl in x, cache_data.values())
+                match = [x for x in list(cache_data.values()) if '"%s"' % srcurl in x]
                 if len(match) != 1:
                     import pdb
                     pdb.set_trace()
                     raise
                 # FIXME: this is broken
-                _page_with_children(FakeSession(), htmlurl, title.split(u'\t')[0], 'teiki', base_url, data=match[0])
+                _page_with_children(FakeSession(), htmlurl, title.split('\t')[0], 'teiki', base_url, data=match[0])
             else:
                 # FIXME: this is broken too
                 _pdf_list_page(FakeSession(), htmlurl, base_url, ptype, title, base_url)
