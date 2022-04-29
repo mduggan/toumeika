@@ -13,7 +13,7 @@ from lxml import etree
 
 from toollib import metautil, get_nenbun
 
-SITE = 'http://www.soumu.go.jp'
+SITE = 'https://www.soumu.go.jp'
 
 _BLOCK_SIZE = 4096
 
@@ -161,7 +161,7 @@ def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, group
         meta.write('fetched,%s\n' % str(datetime.datetime.now()))
         if more_meta is not None:
             for k, v in more_meta:
-                meta.write(b'%s,%s\n' % (k, v))
+                meta.write('%s,%s\n' % (k, v))
 
         meta.close()
     except:
