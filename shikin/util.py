@@ -1,5 +1,4 @@
 from flask import request, session
-from werkzeug import check_password_hash, generate_password_hash
 
 
 def size_str(size):
@@ -12,6 +11,7 @@ def size_str(size):
 
 
 def dologin():
+    from werkzeug import check_password_hash
     from .model import User
     """
     Check a login posted in the current request.  Return (user, error), one of

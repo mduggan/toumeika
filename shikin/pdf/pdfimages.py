@@ -5,7 +5,7 @@ import glob
 import logging
 import shlex
 import subprocess
-from tmpdir import TemporaryDirectory
+from tempfile import TemporaryDirectory
 from .util import get_rot, optimise_png, rotate_png
 
 
@@ -55,7 +55,7 @@ def render_page(pdf_fullpath, pageno, dest, optimise=True, autorotate=True):
 
         if optimise:
             dest = optimise_png(dest)
-    except Exception, e:
+    except Exception as e:
         logging.error('Conversion error: %s' % str(e))
         try:
             # Remove the output on any error

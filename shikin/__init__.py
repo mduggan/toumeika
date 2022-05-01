@@ -4,8 +4,14 @@ Shikin, political donations database.
 """
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy, BaseQuery
 from flask_babel import Babel
+
+# fix flask-restless bug.. https://github.com/jfinkels/flask-restless/issues/702
+def _limit(self):
+    return self.limit()
+
+setattr(BaseQuery, '_limit', _limit)
 
 from . import config
 
