@@ -107,7 +107,7 @@ def cache_page(session, url, srcurl):
     """ Get a page with caching """
     url = normalise(url, srcurl)
     if url in _seen:
-        logging.warn("ALREADY SEEN PAGE %s" % url)
+        logging.warning("ALREADY SEEN PAGE %s" % url)
         return None
     key = md5(bytes(url, "utf-8")).hexdigest()
     path = os.path.join(html_cache_dir, key)
@@ -124,7 +124,7 @@ def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, group
     """
     url = normalise(url, srcurl)
     if url in _seen:
-        logging.warn("ALREADY SEEN PDF %s" % url)
+        logging.warning("ALREADY SEEN PDF %s" % url)
         return
 
     pdf_cache_file = url[len(site_base_url):]
@@ -142,7 +142,9 @@ def cache_pdf(session, url, srcurl, site_base_url, ptype, title, srctitle, group
 
     try:
         meta = None
-        if not _redo_meta:
+        if os.path.exists(pdf_cache_file):
+            logging.warning("not overwriting pdf for %s, refreshing meta only" % url)
+        elif not _redo_meta:
             save(session, url, pdf_cache_file)
         if _redo_meta and os.path.exists(meta_file):
             # For debugging..
@@ -230,7 +232,7 @@ def _pdf_list_page(session, url, site_base_url, ptype, title, srcurl, data, repu
             if purl.endswith('SD20110228/220210.pdf') or purl.endswith('SA20110228/200210.pdf'):
                 ptitle = '高健社'
             else:
-                logging.warn('No title for %s..' % purl)
+                logging.warning('No title for %s..' % purl)
                 ptitle = '(無題)'
 
         # Find the group type and year for non teiki pages

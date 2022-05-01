@@ -2,7 +2,7 @@
 
 import re
 
-_YEAR_REGEX_STR = u'(昭和|平成)(\d+)'
+_YEAR_REGEX_STR = u'(昭和|平成|令和)(元|\d+)'
 YEAR_RE = re.compile(_YEAR_REGEX_STR)
 NENBUN_RE = re.compile(_YEAR_REGEX_STR + u'年分')
 NEN_RE = re.compile(_YEAR_REGEX_STR + u'年')
@@ -22,11 +22,17 @@ def get_nenbun(text, weak=False):
 
 def year_to_western(emp, year):
     if not isinstance(year, int):
-        year = int(year)
-    # Heisei starts in 1988
-    if emp == u'平成':
+        if year == '元':
+            year = 1
+        else:
+            year = int(year)
+    # Heisei starts in 1989, reiwa gan-nen was 2019
+    # years are 1-based so add to the year before.
+    if emp == '令和':
+        year = 2018 + year
+    elif emp == '平成':
         year = 1988 + year
-    elif emp == u'昭和':
+    elif emp == '昭和':
         year = 1925 + year
     else:
         raise ValueError('Unhandled emperor: %s' % emp)

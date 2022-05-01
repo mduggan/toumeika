@@ -45,7 +45,7 @@ def check_pdf(pdf_dir, pdf_file):
     meta = metautil.get_meta(pdfpath)
 
     if meta is None:
-        logging.warn('skip %s with no metadata' % pdfpath)
+        logging.warning('skip %s with no metadata' % pdfpath)
         return
 
     if meta.get('pagetype') == 'kanpo':
@@ -53,7 +53,7 @@ def check_pdf(pdf_dir, pdf_file):
         return
 
     if meta.get('pagetype') != 'summary':
-        logging.warn('skip %s with page type %s (expect summary)' % (pdfpath, meta.get('pagetype')))
+        logging.warning('skip %s with page type %s (expect summary)' % (pdfpath, meta.get('pagetype')))
         return
 
     if meta.get('srctitle') != u'政治資金規正法に基づく届出' or meta.get('docsettype') != u'報道資料':
@@ -67,7 +67,7 @@ def check_pdf(pdf_dir, pdf_file):
         gname = HARDCODED_DOCS[pdf_file]['gname']
         doctype = HARDCODED_DOCS[pdf_file]['doctype']
     elif '(cid:' in pdftext:
-        logging.warn('%s contains unknown characters' % pdf_file)
+        logging.warning('%s contains unknown characters' % pdf_file)
         return
     else:
         lines = pdftext.splitlines()
@@ -125,7 +125,7 @@ def group_name(lines, pdf_file):
         if m is None:
             continue
         if gname is not None:
-            logging.warn('skip %s: 2 groups in one doc: %s [%s] and %s [%s]' % (pdf_file, gname, gtype, m.groups()[2], m.groups()[0]))
+            logging.warning('skip %s: 2 groups in one doc: %s [%s] and %s [%s]' % (pdf_file, gname, gtype, m.groups()[2], m.groups()[0]))
             return
         gname = m.groups()[2].strip()
         gtype = m.groups()[0].strip()

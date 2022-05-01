@@ -29,10 +29,9 @@ def title_date(title):
         raise ValueError("Title didn't match expected format: %s" % title)
 
     (emp, year, month, day) = result.groups()[:4]
-    year = int(year.strip())
+    year = year_to_western(emp, year.strip())
     month = int(month.strip())
     day = int(day.strip())
-    year = year_to_western(emp, year)
 
     return date(year, month, day)
 
@@ -115,7 +114,7 @@ def get_or_make_group(s, api_root, name, gtype, parent):
                 logging.info("Update group %s parent %s unknown" % (name, parent))
 
         if gtype and _grouptype_cache.get(gtype) != int(cached_group['type_id']):
-            logging.warn("Group %s type %s (%s) previously recorded as type %s!!" %
+            logging.warning("Group %s type %s (%s) previously recorded as type %s!!" %
                          (name, gtype, _grouptype_cache.get(gtype), _group_cache[name]['type_id']))
         return cached_group
 
@@ -133,7 +132,7 @@ def get_or_make_group(s, api_root, name, gtype, parent):
             logging.info("Update group %s parent %s unknown" % (name, parent))
 
     if gtype not in _grouptype_cache:
-        logging.warn("Unknown group type: %s" % gtype)
+        logging.warning("Unknown group type: %s" % gtype)
         return
 
     obj = {'name': name, 'type_id': _grouptype_cache[gtype], 'parent_id': parent_id}
@@ -148,7 +147,7 @@ def get_or_make_docset(s, api_root, title, docset_type, docdir):
     docset_date = title_date(title)
 
     if docset_date is None:
-        logging.warn(u"Couldn't guess pub date from title %s" % title)
+        logging.warning(u"Couldn't guess pub date from title %s" % title)
         return
 
     docset_pubtype = None
@@ -158,19 +157,19 @@ def get_or_make_docset(s, api_root, title, docset_type, docdir):
             break
 
     if docset_pubtype is None:
-        logging.warn(u"Couldn't guess pubtype from title %s" % title)
+        logging.warning(u"Couldn't guess pubtype from title %s" % title)
         return
 
     if docset_type in DOCSETTYPE_MAPPING:
         docset_type = DOCSETTYPE_MAPPING[docset_type]
 
     if docset_type not in _doctype_cache:
-        logging.warn(u"Doc type %s not in DB" % docset_type)
+        logging.warning(u"Doc type %s not in DB" % docset_type)
         # Search for similar docsets in the cache
-        keys = filter(lambda x: x[0] == docset_date and x[1] == docset_pubtype, _docset_cache.keys())
+        keys = list(filter(lambda x: x[0] == docset_date and x[1] == docset_pubtype, _docset_cache.keys()))
         if len(keys) == 1:
             docset_type = keys[0][2]
-            logging.warn(u" .. assuming type %s already in DB" % docset_type)
+            logging.warning(u" .. assuming type %s already in DB" % docset_type)
         else:
             return
     else:
@@ -208,11 +207,11 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
     meta = metautil.get_meta(pdf_path)
 
     if meta is None:
-        logging.warn("Skip %s which has no metadata!" % relative_path)
+        logging.warning("Skip %s which has no metadata!" % relative_path)
         return
 
     if 'title' not in meta or 'url' not in meta or 'srcurl' not in meta:
-        logging.warn("Invalid metadata for %s!" % relative_path)
+        logging.warning("Invalid metadata for %s!" % relative_path)
         return
 
     url = meta['url']
@@ -220,7 +219,7 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
         # Verify the contents.. should be the same source
         record = docs_by_url[url]
         if record['srcurl'] != meta['srcurl']:
-            logging.warn('Difference sources for %s at %s and in db: %s vs %s'
+            logging.warning('Difference sources for %s at %s and in db: %s vs %s'
                          % (url, relative_path, record['srcurl'], meta['srcurl']))
         return
     else:
@@ -296,7 +295,7 @@ def check_pdf(s, pdf_path, pdf_root, api_root, docs_by_url, nodefer, groupsonly)
         p1 = subprocess.Popen(['pdfinfo', pdf_path], stdout=subprocess.PIPE)
         (stdoutdata, stderrdata) = p1.communicate()
         pagecount = 0
-        m = pagesre.search(stdoutdata)
+        m = pagesre.search(str(stdoutdata))
         if not m:
             import pdb; pdb.set_trace()
         else:
@@ -317,7 +316,7 @@ def main():
                    default=pdf_root_default)
     p.add_argument('--api-url',
                    help='Root URL of api (default: http://localhost:5000/api/raw)',
-                   default='http://localhost:5000/api/raw')
+                   default='http://127.0.0.1:5000/api/raw')
     p.add_argument('--nodefer', '-n', action='store_true',
                    help='Do not defer unknown group parents and types - record as unknown')
     p.add_argument('--groupsonly', '-g', action='store_true',
