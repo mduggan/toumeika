@@ -1,0 +1,24 @@
+{{page-title "Toumeika"}}
+
+<BsNavbar class="navbar-dark bg-dark" as |navbar|>
+    <LinkTo @route="index" class="navbar-brand"><i class="bi bi-piggy-bank-fill"></i> Political Funds <i>Toumeika</i></LinkTo>
+        <navbar.toggle/>
+    <navbar.content class="navbar-right">
+        <div class="navbar-right navbar-collapse collapse">
+        <navbar.nav as |nav|>
+           <nav.item><nav.link-to @route="index"><i class="bi bi-house-fill"></i> Home</nav.link-to></nav.item>
+           <nav.item><nav.link-to @route="groups"><i class="bi bi-people-fill"></i> Groups</nav.link-to></nav.item>
+           <nav.item><nav.link-to @route="about"><i class="bi bi-info-circle-fill"></i> About</nav.link-to></nav.item>
+        </navbar.nav>
+        </div>
+    </navbar.content>
+</BsNavbar>
+
+{{outlet}}
+
+<footer class="pt-5 my-5 text-muted border-top">
+  <div class="container">
+    <p class="text-muted">&copy; Matthew Duggan 2015.  PDF documents from <a href="https://www.soumu.go.jp/">MIC</a>.</p>
+    <p class="text-muted">Report bugs or help out at <i class="bi bi-github"></i> <a href="https://github.com/mduggan/shikin/">GitHub</a>.</p>
+  </div>
+</footer>

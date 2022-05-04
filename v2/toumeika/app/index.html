@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Toumeika</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {{content-for "head"}}
+
+    <link integrity="" rel="stylesheet" href="{{rootURL}}assets/vendor.css">
+    <link integrity="" rel="stylesheet" href="{{rootURL}}assets/toumeika.css">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/billboard.js/3.4.1/billboard.min.css" integrity="sha512-I/sVbNCPAX6qn/wui2d9+gHj8TITCTP5SNRkCzdPPt/9pzVe/lqrLK2jc/0DYVJiwQiTzo2YRbpXbnVocwHuXg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/billboard.js/3.4.1/theme/insight.min.css" integrity="sha512-7joAb8Iv+GRYib8xsoWOWHQLQtIziiO+i9ZaDgYH6UEBFrUtVNGJgmOcfnymVQ+jGd0tiDlMgS/Lqcc+w9PWFw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+
+    {{content-for "head-footer"}}
+  </head>
+  <body>
+    {{content-for "body"}}
+
+    <script src="{{rootURL}}assets/vendor.js"></script>
+    <script src="{{rootURL}}assets/toumeika.js"></script>
+
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/billboard.js/3.4.1/billboard.min.js" integrity="sha512-FXDqFIINM8hfNzm3ltyOoTc7be0sZ4ClUmMMPGrOhF/mzOUwoa2m6VLDGG2m6fZdAC2OpbiKwR4qkw6e9gfvOg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    {{content-for "body-footer"}}
+  </body>
+</html>

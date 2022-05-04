@@ -1,0 +1,45 @@
+{{page-title "Toumeika"}}
+
+<div class="p-5 mb-4 bg-light rounded-3">
+    <div class="container-fluid py-5">
+        <h1 class="display-4 fw-bold">Political Funds <i>Toumeika</i></h1>
+        <p class="col-8 fs-4">An unofficial index of political funding declarations (<a href="https://www.soumu.go.jp/senkyo/seiji_s/seijishikin/">政治資金収支報告書</a>) from Japan's Ministry of Internal Affairs and Communications</p>
+        <BsForm @formLayout="inline" class="row" as |form|>
+            <form.element @controltype="input" @type="text" name="q" autocomplete="off" autofocus="true" class="col col-6" as |el|>
+                <el.control placeholder="Search by party (eg: 海賊党, 神の党)" class="form-control-lg"/>
+            </form.element>
+            <form.submitButton class="btn-lg col-2"><i class="bi bi-search"></i> Search</form.submitButton>
+        </BsForm>
+    </div>
+</div>
+
+<div class="container">
+    <h2>Declaration Trend</h2>
+    <div class="row">
+        <BBChart/>
+    </div>
+</div>
+
+<div class="container">
+  <h2>Start browsing documents by...</h2>
+  <div class="row">
+    <div class="col-md-4">
+      <h3><i class="bi bi-people"></i> Groups</h3>
+      <p>Political groups (eg, 自民党, みんなの党, etc</p>
+      <p><LinkTo @route="groups">Groups &raquo;</LinkTo></p>
+    </div>
+    <div class="col-md-4">
+      <h3><i class="bi bi-book"></i> Publications</h3>
+      <p>Documents split by when they were published</p>
+      <p><LinkTo @route="pubs">Publications &raquo;</LinkTo></p>
+   </div>
+    <div class="col-md-4">
+      <h3><i class="bi bi-calendar"></i> Year</h3>
+      <p>Documents split by the year being declared</p>
+      <p></p>
+      <p><LinkTo @route="years">By Year &raquo;</LinkTo></p>
+    </div>
+  </div>
+</div>
+
+{{outlet}}
