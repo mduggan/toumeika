@@ -73,6 +73,7 @@
     "edition": "octane"
   },
   "dependencies": {
+    "lodash": "^4.17.21",
     "sql.js": "^1.6.2"
   }
 }

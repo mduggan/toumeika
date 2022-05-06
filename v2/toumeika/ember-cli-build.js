@@ -10,7 +10,7 @@ module.exports = function (defaults) {
     },
     autoImport: {
       exclude: ['sql.js'],
-    }
+    },
   });
 
   // Use `app.import` to add additional libraries to the generated
@@ -26,8 +26,9 @@ module.exports = function (defaults) {
   // please specify an object with the list of modules as keys
   // along with the exports of each module as its value.
 
-  app.import('node_modules/sql.js/dist/sql-wasm.js',
-    { using: [ { transformation: 'amd', as: 'sql.js' } ] });
+  app.import('node_modules/sql.js/dist/sql-wasm.js', {
+    using: [{ transformation: 'amd', as: 'sql.js' }],
+  });
   //app.import('node_modules/sql.js/dist/sql-wasm.wasm');
 
   return app.toTree();

@@ -1,44 +1,41 @@
 import Component from '@glimmer/component';
-import { action } from "@ember/object";
-//import { did-render } from "@ember/render-modifiers";
+import { action } from '@ember/object';
+import { tracked } from '@glimmer/tracking';
 
-function makeChart() {
-    // generate the chart
-    let elem = document.getElementById("chart");
-    console.log("addint chart to " + elem);
-    var chart = bb.generate({
-        bindto: elem,
-        data: {
-          // for ESM import usage, import 'line' module and execute it as
-          // type: line(),
-          type: "line",
-          columns: [
-              ["datas", 30, 200, 100, 400, 150, 250]
-          ]
+export default class BBChart extends Component {
+  @tracked columns = [];
+
+  constructor(owner, args) {
+    super(owner, args);
+  }
+
+  makeChart(elem) {
+    this.chart = bb.generate({
+      bindto: elem,
+      data: {
+        type: 'line',
+        x: this.args.x,
+        columns: this.args.columns || [],
+      },
+      axis: {
+        y: {
+          min: 0,
+          padding: { bottom: 0 }
         }
+      },
     });
-}
+  }
 
-function waitForChart() {
-    console.log("waitForChart");
-    if (document.getElementById("chart") == null) {
-        setTimeout(waitForChart, 100);
-        return;
+  waitForChart(elemname) {
+    var elem = document.getElementById('chart');
+    if (elem == null) {
+      setTimeout(waitForChart, 100);
+      return;
     }
-    makeChart();
+    this.makeChart(elem);
+  }
+
+  get addChart() {
+    this.waitForChart();
+  }
 }
-
-
- export default class BBChart extends Component {
-    constructor(owner, args) {
-        console.log("constructor");
-        super(owner, args);
-        this.madeChart = false;
-    }
-
-    get addChart() {
-        console.log("addchart");
-        waitForChart();
-   }
-}
-
