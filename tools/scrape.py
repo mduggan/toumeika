@@ -205,6 +205,13 @@ def page_auto(session, url, base_url, ptype, title, srcurl, data=None, grouptype
     data = data or cache_page(session, url, base_url)
     if data is None:
         return
+    # Massive HACK (2023-12-02) this page:
+    # https://www.soumu.go.jp/senkyo/seiji_s/seijishikin/reports/SS20221125/SS/11.html
+    # is broken, it as a 0 at the front which causes the parser to fail, and also has
+    # massive weird null characters
+    if data[0:2] == b'0<':
+        data = data[1:]
+        data = data.replace(b'\0', b'')
     urls, encoding, pagetitle = parse_page(data)
     repurls = list(filter(report_url_filter(url), urls))
 
